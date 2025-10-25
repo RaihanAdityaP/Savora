@@ -27,60 +27,152 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  Future<void> _signUp() async {
-  if (_emailController.text.isEmpty ||
-      _passwordController.text.isEmpty ||
-      _usernameController.text.isEmpty ||
-      _fullNameController.text.isEmpty) {
+  void _showSnackBar(String message, {Color? backgroundColor}) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Semua field harus diisi!')),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor ?? Colors.red,
+        duration: const Duration(seconds: 4),
+      ),
     );
-    return;
   }
 
-  setState(() => _isLoading = true);
+  Future<void> _signUp() async {
+    // Validasi input
+    if (_emailController.text.isEmpty ||
+        _passwordController.text.isEmpty ||
+        _usernameController.text.isEmpty ||
+        _fullNameController.text.isEmpty) {
+      _showSnackBar('Semua field harus diisi!');
+      return;
+    }
 
-  try {
-    // Sign up user dengan metadata (trigger SQL akan otomatis isi tabel profiles)
-    final response = await supabase.auth.signUp(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-      data: {
-        'username': _usernameController.text.trim(),
-        'full_name': _fullNameController.text.trim(),
-      },
-    );
+    // Validasi email format
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(_emailController.text.trim())) {
+      _showSnackBar('Format email tidak valid!');
+      return;
+    }
 
-   if (response.user != null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Registrasi berhasil! Silakan cek verifikasi sebelum login.'),
-          ),
+    // Validasi password minimal 6 karakter
+    if (_passwordController.text.length < 6) {
+      _showSnackBar('Password minimal 6 karakter!');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Sign up dengan timeout
+      final response = await supabase.auth.signUp(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        data: {
+          'username': _usernameController.text.trim(),
+          'full_name': _fullNameController.text.trim(),
+        },
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw Exception('Registration timeout. Silakan coba lagi.'),
+      );
+
+      if (!mounted) return;
+
+      if (response.user != null) {
+        // Tunggu sebentar untuk memastikan trigger selesai
+        await Future.delayed(const Duration(seconds: 2));
+
+        if (!mounted) return;
+
+        // Verifikasi profile sudah dibuat
+        try {
+          final profileCheck = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('id', response.user!.id)
+              .maybeSingle()
+              .timeout(const Duration(seconds: 5));
+
+          if (!mounted) return;
+
+          if (profileCheck == null) {
+            // Profile belum dibuat, coba buat manual
+            await supabase.from('profiles').insert({
+              'id': response.user!.id,
+              'username': _usernameController.text.trim(),
+              'full_name': _fullNameController.text.trim(),
+              'role': 'user',
+            }).timeout(const Duration(seconds: 5));
+          }
+        } catch (profileError) {
+          debugPrint('Profile creation check error: $profileError');
+          // Continue anyway, profile might be created by trigger
+        }
+
+        if (!mounted) return;
+
+        _showSnackBar(
+          'Registrasi berhasil! Silakan cek email untuk verifikasi.',
+          backgroundColor: Colors.green,
         );
 
-        // Alihkan ke halaman login
+        // Sign out untuk memaksa user login setelah verifikasi
+        await supabase.auth.signOut();
+
+        if (!mounted) return;
+
+        // Navigate ke login screen
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const LoginScreen()),
         );
-      } 
+      } else {
+        throw Exception('User tidak ditemukan setelah registrasi');
+      }
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      
+      String message = 'Error: ${e.message}';
+
+      // Custom error messages
+      if (e.message.contains('User already registered')) {
+        message = 'Email sudah terdaftar. Silakan gunakan email lain atau login.';
+      } else if (e.message.contains('Password should be at least')) {
+        message = 'Password terlalu lemah. Gunakan minimal 6 karakter.';
+      } else if (e.message.contains('Unable to validate email')) {
+        message = 'Format email tidak valid.';
+      } else if (e.message.contains('Email rate limit exceeded')) {
+        message = 'Terlalu banyak percobaan. Tunggu beberapa menit.';
+      }
+
+      _showSnackBar(message);
+    } on PostgrestException catch (e) {
+      if (!mounted) return;
+      
+      String message = 'Error database: ${e.message}';
+      
+      if (e.message.contains('duplicate key')) {
+        message = 'Username atau email sudah digunakan.';
+      }
+
+      _showSnackBar(message);
+    } catch (e) {
+      if (!mounted) return;
+      
+      String errorMsg = e.toString();
+      if (errorMsg.contains('timeout')) {
+        errorMsg = 'Koneksi timeout. Periksa internet Anda dan coba lagi.';
+      } else if (errorMsg.contains('Database error')) {
+        errorMsg = 'Terjadi kesalahan sistem. Silakan coba lagi dalam beberapa saat.';
+      } else {
+        errorMsg = 'Terjadi kesalahan: $e';
+      }
+
+      _showSnackBar(errorMsg);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-  } on AuthException catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.message}')),
-      );
-    }
-  } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Terjadi kesalahan: $e')),
-      );
-    }
-  } finally {
-    if (mounted) setState(() => _isLoading = false);
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -119,7 +211,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        // Fork icon (kiri)
                         Positioned(
                           left: 18,
                           child: Icon(
@@ -128,7 +219,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             color: const Color(0xFFFF6B35),
                           ),
                         ),
-                        // Spoon icon (kanan)
                         Positioned(
                           right: 18,
                           child: Transform.rotate(
@@ -145,8 +235,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                
-                // Nama Aplikasi
+
                 const Text(
                   'Savora',
                   style: TextStyle(
@@ -157,8 +246,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                
-                // Subtitle
+
                 const Text(
                   'Daftar Akun',
                   style: TextStyle(
@@ -168,7 +256,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 35),
-                
+
                 // Full Name TextField
                 Container(
                   constraints: const BoxConstraints(maxWidth: 350),
@@ -206,7 +294,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Username TextField
                 Container(
                   constraints: const BoxConstraints(maxWidth: 350),
@@ -244,7 +332,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Email TextField
                 Container(
                   constraints: const BoxConstraints(maxWidth: 350),
@@ -283,7 +371,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Password TextField
                 Container(
                   constraints: const BoxConstraints(maxWidth: 350),
@@ -292,7 +380,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     obscureText: _obscurePassword,
                     style: const TextStyle(fontSize: 15),
                     decoration: InputDecoration(
-                      hintText: 'Password',
+                      hintText: 'Password (min. 6 karakter)',
                       hintStyle: TextStyle(
                         color: Colors.grey.shade600,
                         fontSize: 15,
@@ -333,7 +421,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 32),
-                
+
                 // Register Button
                 Container(
                   constraints: const BoxConstraints(maxWidth: 350),
