@@ -59,7 +59,6 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           : null,
       title: GestureDetector(
         onTap: () {
-          // Navigasi ke home screen
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -69,7 +68,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Logo Savora
+            // Logo Savora dari Assets
             Container(
               width: 40,
               height: 40,
@@ -84,32 +83,17 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                   ),
                 ],
               ),
-              child: Center(
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Fork icon (kiri)
-                    Positioned(
-                      left: 8,
-                      child: Icon(
-                        Icons.restaurant,
-                        size: 18,
-                        color: const Color(0xFFFF6B35),
-                      ),
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/images/logo.png',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const Center(
+                    child: Icon(
+                      Icons.restaurant,
+                      size: 24,
+                      color: Color(0xFFFF6B35),
                     ),
-                    // Spoon icon (kanan)
-                    Positioned(
-                      right: 8,
-                      child: Transform.rotate(
-                        angle: 0.2,
-                        child: Icon(
-                          Icons.restaurant,
-                          size: 18,
-                          color: const Color(0xFF8BC34A),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
