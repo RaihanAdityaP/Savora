@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../utils/supabase_client.dart';
 import 'register_screen.dart';
 import 'home_screen.dart';
@@ -16,12 +17,87 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _isGoogleLoading = false;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() => _isGoogleLoading = true);
+
+    try {
+      const webClientId = '928387294220-hb6h1ioaok3fksdkp0vh8fv0an9im27l.apps.googleusercontent.com';
+
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        serverClientId: webClientId,
+      );
+
+      final googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        setState(() => _isGoogleLoading = false);
+        return;
+      }
+
+      final googleAuth = await googleUser.authentication;
+      final idToken = googleAuth.idToken;
+
+      if (idToken == null) {
+        throw Exception('Google authentication failed: missing idToken');
+      }
+
+      // Supabase hanya butuh idToken untuk web
+      final authResponse = await supabase.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+      );
+
+      if (authResponse.user == null) {
+        throw Exception('Login gagal');
+      }
+
+      // Cek banned status
+      final profile = await supabase
+          .from('profiles')
+          .select('is_banned, banned_reason, banned_at')
+          .eq('id', authResponse.user!.id)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 5));
+
+      if (profile != null && profile['is_banned'] == true) {
+        await supabase.auth.signOut();
+        await googleSignIn.signOut();
+
+        if (mounted) {
+          _showBannedDialog(
+            reason: profile['banned_reason'] ?? 'Tidak disebutkan',
+            bannedAt: profile['banned_at'],
+          );
+        }
+        return;
+      }
+
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Google Sign In gagal: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isGoogleLoading = false);
+    }
   }
 
   Future<void> _signIn() async {
@@ -35,7 +111,6 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Sign in dengan timeout
       final authResponse = await supabase.auth.signInWithPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
@@ -48,21 +123,16 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception('Login gagal');
       }
 
-      // Check banned status dengan timeout
       final profile = await supabase
           .from('profiles')
           .select('is_banned, banned_reason, banned_at')
           .eq('id', authResponse.user!.id)
           .maybeSingle()
-          .timeout(
-            const Duration(seconds: 5),
-            onTimeout: () => null, // Jika timeout, anggap tidak banned
-          );
+          .timeout(const Duration(seconds: 5));
 
       if (profile != null && profile['is_banned'] == true) {
-        // Sign out immediately jika banned
         await supabase.auth.signOut();
-        
+
         if (mounted) {
           _showBannedDialog(
             reason: profile['banned_reason'] ?? 'Tidak disebutkan',
@@ -72,7 +142,6 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      // Login successful - langsung navigate tanpa delay
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -80,15 +149,15 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } on AuthException catch (e) {
       if (mounted) {
-        String message = 'Error: ${e.message}';
-        
-        // Custom error messages
-        if (e.message.contains('Invalid login credentials')) {
+        String message = e.message;
+        if (message.contains('Invalid login credentials')) {
           message = 'Email atau password salah';
-        } else if (e.message.contains('Email not confirmed')) {
+        } else if (message.contains('Email not confirmed')) {
           message = 'Silakan verifikasi email Anda terlebih dahulu';
+        } else {
+          message = 'Error: $message';
         }
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
@@ -113,9 +182,9 @@ class _LoginScreenState extends State<LoginScreen> {
         if (errorMsg.contains('timeout')) {
           errorMsg = 'Koneksi timeout. Cek internet Anda.';
         } else {
-          errorMsg = 'Terjadi kesalahan: $e';
+          errorMsg = 'Terjadi kesalahan: $errorMsg';
         }
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMsg),
@@ -220,7 +289,6 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo Savora
                 Container(
                   width: 100,
                   height: 100,
@@ -263,7 +331,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                
+
                 const Text(
                   'Savora',
                   style: TextStyle(
@@ -274,7 +342,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                
+
                 const Text(
                   'WELCOME',
                   style: TextStyle(
@@ -285,8 +353,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 50),
-                
-                // Email TextField
+
+                // Email
                 Container(
                   constraints: const BoxConstraints(maxWidth: 350),
                   child: TextField(
@@ -324,8 +392,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                
-                // Password TextField
+
+                // Password
                 Container(
                   constraints: const BoxConstraints(maxWidth: 350),
                   child: TextField(
@@ -374,7 +442,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 40),
-                
+
                 // Login Button
                 Container(
                   constraints: const BoxConstraints(maxWidth: 350),
@@ -409,14 +477,79 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                   ),
                 ),
+                const SizedBox(height: 20),
+
+                // OR Divider
+                Container(
+                  constraints: const BoxConstraints(maxWidth: 350),
+                  child: Row(
+                    children: [
+                      Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.5))),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'OR',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.8),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.5))),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Google Sign In
+                Container(
+                  constraints: const BoxConstraints(maxWidth: 350),
+                  height: 54,
+                  child: ElevatedButton.icon(
+                    onPressed: _isGoogleLoading ? null : _signInWithGoogle,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF5C4033),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(27),
+                      ),
+                      elevation: 2,
+                      shadowColor: Colors.black.withValues(alpha: 0.2),
+                    ),
+                    icon: _isGoogleLoading
+                        ? const SizedBox.shrink()
+                        : Image.network(
+                            'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg',
+                            height: 24,
+                            width: 24,
+                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.g_mobiledata, size: 24),
+                          ),
+                    label: _isGoogleLoading
+                        ? SizedBox(
+                            height: 22,
+                            width: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: const Color(0xFF5C4033),
+                            ),
+                          )
+                        : const Text(
+                            'Continue with Google',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
+                ),
                 const SizedBox(height: 30),
-                
-                // Sign in Text & Arrow
+
+                // Sign Up
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text(
-                      'Sign in',
+                      'Sign up',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 15,
@@ -427,9 +560,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     GestureDetector(
                       onTap: () {
                         Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const RegisterScreen(),
-                          ),
+                          MaterialPageRoute(builder: (_) => const RegisterScreen()),
                         );
                       },
                       child: Container(
