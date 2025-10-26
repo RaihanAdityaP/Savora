@@ -38,7 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
-        setState(() => _isGoogleLoading = false);
+        if (mounted) setState(() => _isGoogleLoading = false);
         return;
       }
 
@@ -49,7 +49,6 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception('Google authentication failed: missing idToken');
       }
 
-      // Supabase hanya butuh idToken untuk web
       final authResponse = await supabase.auth.signInWithIdToken(
         provider: OAuthProvider.google,
         idToken: idToken,
@@ -59,7 +58,6 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception('Login gagal');
       }
 
-      // Cek banned status
       final profile = await supabase
           .from('profiles')
           .select('is_banned, banned_reason, banned_at')
@@ -148,61 +146,150 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } on AuthException catch (e) {
-      if (mounted) {
-        String message = e.message;
-        if (message.contains('Invalid login credentials')) {
-          message = 'Email atau password salah';
-        } else if (message.contains('Email not confirmed')) {
-          message = 'Silakan verifikasi email Anda terlebih dahulu';
-        } else {
-          message = 'Error: $message';
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+      if (!mounted) return;
+      
+      String message = e.message;
+      if (message.contains('Invalid login credentials')) {
+        message = 'Email atau password salah';
+      } else if (message.contains('Email not confirmed')) {
+        message = 'Silakan verifikasi email Anda terlebih dahulu';
+      } else {
+        message = 'Error: $message';
       }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     } on PostgrestException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error database: ${e.message}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error database: ${e.message}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     } catch (e) {
-      if (mounted) {
-        String errorMsg = e.toString();
-        if (errorMsg.contains('timeout')) {
-          errorMsg = 'Koneksi timeout. Cek internet Anda.';
-        } else {
-          errorMsg = 'Terjadi kesalahan: $errorMsg';
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMsg),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+      if (!mounted) return;
+      
+      String errorMsg = e.toString();
+      if (errorMsg.contains('timeout')) {
+        errorMsg = 'Koneksi timeout. Cek internet Anda.';
+      } else {
+        errorMsg = 'Terjadi kesalahan: $errorMsg';
       }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMsg),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _showResendVerificationDialog() async {
+    final emailController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.email, color: Colors.orange.shade700),
+            const SizedBox(width: 8),
+            const Text('Verifikasi Email'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Masukkan email Anda untuk kirim ulang email verifikasi:',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                hintText: 'Email',
+                prefixIcon: const Icon(Icons.email_outlined),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              final email = emailController.text.trim();
+              if (email.isEmpty) {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(content: Text('Email harus diisi!')),
+                );
+                return;
+              }
+
+              Navigator.pop(dialogContext);
+
+              try {
+                await supabase.auth.resend(
+                  type: OtpType.signup,
+                  email: email,
+                );
+
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Email verifikasi telah dikirim ke $email'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Gagal mengirim email: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.send),
+            label: const Text('Kirim'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF6B35),
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showBannedDialog({required String reason, String? bannedAt}) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Row(
           children: [
             Icon(Icons.block, color: Colors.red.shade700),
@@ -252,7 +339,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Tutup'),
           ),
         ],
@@ -289,44 +376,27 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
+                // Logo
+                Image.asset(
+                  'assets/images/logo.png',
                   width: 100,
                   height: 100,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.15),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Positioned(
-                          left: 22,
-                          child: Icon(
-                            Icons.restaurant,
-                            size: 45,
-                            color: const Color(0xFFFF6B35),
-                          ),
-                        ),
-                        Positioned(
-                          right: 22,
-                          child: Transform.rotate(
-                            angle: 0.2,
-                            child: Icon(
-                              Icons.restaurant,
-                              size: 45,
-                              color: const Color(0xFF8BC34A),
-                            ),
-                          ),
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
                         ),
                       ],
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.restaurant, size: 50, color: Color(0xFFFF6B35)),
                     ),
                   ),
                 ),
@@ -518,8 +588,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     icon: _isGoogleLoading
                         ? const SizedBox.shrink()
-                        : Image.network(
-                            'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg',
+                        : Image.asset(
+                            'assets/images/googlelogo.png',
                             height: 24,
                             width: 24,
                             errorBuilder: (context, error, stackTrace) => const Icon(Icons.g_mobiledata, size: 24),
@@ -542,7 +612,21 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                   ),
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 16),
+
+                // Belum Verifikasi Email?
+                TextButton(
+                  onPressed: _showResendVerificationDialog,
+                  child: Text(
+                    'Belum verifikasi email?',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 14,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
 
                 // Sign Up
                 Row(
