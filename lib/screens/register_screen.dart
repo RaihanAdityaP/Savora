@@ -39,7 +39,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _signUp() async {
-    // Validasi input
     if (_emailController.text.isEmpty ||
         _passwordController.text.isEmpty ||
         _usernameController.text.isEmpty ||
@@ -48,14 +47,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    // Validasi email format
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     if (!emailRegex.hasMatch(_emailController.text.trim())) {
       _showSnackBar('Format email tidak valid!');
       return;
     }
 
-    // Validasi password minimal 6 karakter
     if (_passwordController.text.length < 6) {
       _showSnackBar('Password minimal 6 karakter!');
       return;
@@ -64,7 +61,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Sign up dengan timeout
       final response = await supabase.auth.signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text,
@@ -79,96 +75,92 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (!mounted) return;
 
-      if (response.user != null) {
-        // Tunggu sebentar untuk memastikan trigger selesai
-        await Future.delayed(const Duration(seconds: 2));
-
-        if (!mounted) return;
-
-        // Verifikasi profile sudah dibuat
-        try {
-          final profileCheck = await supabase
-              .from('profiles')
-              .select('id')
-              .eq('id', response.user!.id)
-              .maybeSingle()
-              .timeout(const Duration(seconds: 5));
-
-          if (!mounted) return;
-
-          if (profileCheck == null) {
-            // Profile belum dibuat, coba buat manual
-            await supabase.from('profiles').insert({
-              'id': response.user!.id,
-              'username': _usernameController.text.trim(),
-              'full_name': _fullNameController.text.trim(),
-              'role': 'user',
-            }).timeout(const Duration(seconds: 5));
-          }
-        } catch (profileError) {
-          debugPrint('Profile creation check error: $profileError');
-          // Continue anyway, profile might be created by trigger
-        }
-
-        if (!mounted) return;
-
-        _showSnackBar(
-          'Registrasi berhasil! Silakan cek email untuk verifikasi.',
-          backgroundColor: Colors.green,
-        );
-
-        // Sign out untuk memaksa user login setelah verifikasi
-        await supabase.auth.signOut();
-
-        if (!mounted) return;
-
-        // Navigate ke login screen
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
-      } else {
-        throw Exception('User tidak ditemukan setelah registrasi');
+      if (response.user == null) {
+        throw Exception('Gagal membuat akun. Coba lagi.');
       }
+
+      final existingProfile = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', response.user!.id)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 5));
+
+      if (existingProfile != null) {
+        await supabase.auth.signOut();
+        if (!mounted) return;
+        _showSnackBar('Email ini sudah terdaftar. Silakan login.');
+        return;
+      }
+
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+
+      final profileNow = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', response.user!.id)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 5));
+
+      if (profileNow == null) {
+        await supabase.from('profiles').insert({
+          'id': response.user!.id,
+          'username': _usernameController.text.trim(),
+          'full_name': _fullNameController.text.trim(),
+          'role': 'user',
+        }).timeout(const Duration(seconds: 5));
+      }
+
+      _showSnackBar(
+        'Registrasi berhasil! Silakan cek email untuk verifikasi.',
+        backgroundColor: Colors.green,
+      );
+
+      await supabase.auth.signOut();
+      if (!mounted) return;
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+
     } on AuthException catch (e) {
       if (!mounted) return;
-      
-      String message = 'Error: ${e.message}';
 
-      // Custom error messages
-      if (e.message.contains('User already registered')) {
-        message = 'Email sudah terdaftar. Silakan gunakan email lain atau login.';
-      } else if (e.message.contains('Password should be at least')) {
-        message = 'Password terlalu lemah. Gunakan minimal 6 karakter.';
-      } else if (e.message.contains('Unable to validate email')) {
+      String message = e.message;
+      if (message.contains('User already registered') ||
+          message.contains('already been registered')) {
+        message = 'Email sudah terdaftar. Silakan login.';
+      } else if (message.contains('Password should be at least')) {
+        message = 'Password minimal 6 karakter.';
+      } else if (message.contains('Unable to validate email')) {
         message = 'Format email tidak valid.';
-      } else if (e.message.contains('Email rate limit exceeded')) {
+      } else if (message.contains('Email rate limit exceeded')) {
         message = 'Terlalu banyak percobaan. Tunggu beberapa menit.';
+      } else {
+        message = 'Error: $message';
       }
-
       _showSnackBar(message);
+
     } on PostgrestException catch (e) {
       if (!mounted) return;
-      
-      String message = 'Error database: ${e.message}';
-      
-      if (e.message.contains('duplicate key')) {
-        message = 'Username atau email sudah digunakan.';
-      }
-
+      String message = e.message.contains('duplicate key')
+          ? 'Username sudah digunakan.'
+          : 'Error database: ${e.message}';
       _showSnackBar(message);
+
     } catch (e) {
       if (!mounted) return;
-      
       String errorMsg = e.toString();
       if (errorMsg.contains('timeout')) {
         errorMsg = 'Koneksi timeout. Periksa internet Anda dan coba lagi.';
       } else if (errorMsg.contains('Database error')) {
-        errorMsg = 'Terjadi kesalahan sistem. Silakan coba lagi dalam beberapa saat.';
+        errorMsg = 'Terjadi kesalahan sistem. Silakan coba lagi nanti.';
       } else {
-        errorMsg = 'Terjadi kesalahan: $e';
+        errorMsg = 'Terjadi kesalahan: $errorMsg';
       }
-
       _showSnackBar(errorMsg);
+
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -192,7 +184,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             padding: const EdgeInsets.all(24),
             child: Column(
               children: [
-                // Logo Savora
                 Container(
                   width: 90,
                   height: 90,
@@ -257,172 +248,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 35),
 
-                // Full Name TextField
-                Container(
-                  constraints: const BoxConstraints(maxWidth: 350),
-                  child: TextField(
-                    controller: _fullNameController,
-                    style: const TextStyle(fontSize: 15),
-                    decoration: InputDecoration(
-                      hintText: 'Nama Lengkap',
-                      hintStyle: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 15,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.95),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFFF6B35),
-                          width: 2,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 18,
-                      ),
-                    ),
-                  ),
+                _buildTextField(_fullNameController, 'Nama Lengkap'),
+                const SizedBox(height: 16),
+                _buildTextField(_usernameController, 'Username'),
+                const SizedBox(height: 16),
+                _buildTextField(
+                  _emailController,
+                  'Email',
+                  keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 16),
-
-                // Username TextField
-                Container(
-                  constraints: const BoxConstraints(maxWidth: 350),
-                  child: TextField(
-                    controller: _usernameController,
-                    style: const TextStyle(fontSize: 15),
-                    decoration: InputDecoration(
-                      hintText: 'Username',
-                      hintStyle: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 15,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.95),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFFF6B35),
-                          width: 2,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 18,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Email TextField
-                Container(
-                  constraints: const BoxConstraints(maxWidth: 350),
-                  child: TextField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    style: const TextStyle(fontSize: 15),
-                    decoration: InputDecoration(
-                      hintText: 'Email',
-                      hintStyle: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 15,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.95),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFFF6B35),
-                          width: 2,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 18,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Password TextField
-                Container(
-                  constraints: const BoxConstraints(maxWidth: 350),
-                  child: TextField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    style: const TextStyle(fontSize: 15),
-                    decoration: InputDecoration(
-                      hintText: 'Password (min. 6 karakter)',
-                      hintStyle: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 15,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.95),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFFF6B35),
-                          width: 2,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 18,
-                      ),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                          color: Colors.grey.shade600,
-                        ),
-                        onPressed: () {
-                          setState(() => _obscurePassword = !_obscurePassword);
-                        },
-                      ),
-                    ),
-                  ),
-                ),
+                _buildPasswordField(),
                 const SizedBox(height: 32),
 
-                // Register Button
                 Container(
                   constraints: const BoxConstraints(maxWidth: 350),
                   height: 54,
@@ -459,6 +297,97 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 20),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(
+    TextEditingController controller,
+    String hint, {
+    TextInputType? keyboardType,
+  }) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 350),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType ?? TextInputType.text,
+        style: const TextStyle(fontSize: 15),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(
+            color: Colors.grey.shade600,
+            fontSize: 15,
+          ),
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.95),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(25),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(25),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(25),
+            borderSide: const BorderSide(
+              color: Color(0xFFFF6B35),
+              width: 2,
+            ),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 18,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPasswordField() {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 350),
+      child: TextField(
+        controller: _passwordController,
+        obscureText: _obscurePassword,
+        style: const TextStyle(fontSize: 15),
+        decoration: InputDecoration(
+          hintText: 'Password (min. 6 karakter)',
+          hintStyle: TextStyle(
+            color: Colors.grey.shade600,
+            fontSize: 15,
+          ),
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.95),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(25),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(25),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(25),
+            borderSide: const BorderSide(
+              color: Color(0xFFFF6B35),
+              width: 2,
+            ),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 18,
+          ),
+          suffixIcon: IconButton(
+            icon: Icon(
+              _obscurePassword ? Icons.visibility_off : Icons.visibility,
+              color: Colors.grey.shade600,
+            ),
+            onPressed: () {
+              setState(() => _obscurePassword = !_obscurePassword);
+            },
           ),
         ),
       ),
