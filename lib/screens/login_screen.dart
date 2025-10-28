@@ -262,11 +262,28 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   );
                 }
+              } on AuthException catch (e) {
+                if (mounted) {
+                  String message = e.message;
+                  if (message.contains('rate') || message.contains('limit') || message.contains('429')) {
+                    message = 'Terlalu banyak permintaan. Tunggu beberapa menit sebelum mencoba lagi.';
+                  } else if (message.contains('email')) {
+                    message = 'Email tidak valid atau tidak ditemukan.';
+                  }
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(message),
+                      backgroundColor: Colors.orange,
+                      duration: const Duration(seconds: 4),
+                    ),
+                  );
+                }
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Gagal mengirim email: $e'),
+                      content: Text('Gagal mengirim email: ${e.toString().contains('429') ? 'Terlalu banyak permintaan. Tunggu beberapa menit.' : 'Terjadi kesalahan'}'),
                       backgroundColor: Colors.red,
                     ),
                   );

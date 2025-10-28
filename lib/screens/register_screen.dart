@@ -116,10 +116,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     } on AuthException catch (e) {
       if (!mounted) return;
-      _showSnackBar('Gagal mengirim email: ${e.message}', Colors.red);
+      
+      String message = e.message;
+      if (message.contains('rate') || message.contains('limit') || message.contains('429')) {
+        message = 'Terlalu banyak permintaan. Tunggu 1-2 menit sebelum mencoba lagi.';
+      } else if (message.contains('email')) {
+        message = 'Email tidak valid atau tidak ditemukan.';
+      }
+      
+      _showSnackBar(message, Colors.orange);
     } catch (e) {
       if (!mounted) return;
-      _showSnackBar('Terjadi kesalahan: $e', Colors.red);
+      
+      String errorMsg = e.toString();
+      if (errorMsg.contains('429') || errorMsg.contains('rate')) {
+        errorMsg = 'Terlalu banyak permintaan. Tunggu beberapa menit.';
+      }
+      
+      _showSnackBar(errorMsg, Colors.red);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
