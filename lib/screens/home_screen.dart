@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/supabase_client.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/custom_bottom_nav.dart';
 import '../widgets/recipe_card.dart';
 import 'category_recipes_screen.dart';
 import 'detail_screen.dart';
+import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _categories = [];
   List<Map<String, dynamic>> _popularRecipes = [];
   final Map<String, double> _recipeRatings = {};
+  RealtimeChannel? _bannedChannel;
 
   @override
   void initState() {
@@ -26,6 +29,65 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadUserData();
     _loadCategories();
     _loadPopularRecipes();
+    
+    // ✅ Listen for banned status changes
+    _setupBannedListener();
+  }
+
+  @override
+  void dispose() {
+    _bannedChannel?.unsubscribe();
+    super.dispose();
+  }
+
+  // ✅ Setup realtime listener for banned status
+  void _setupBannedListener() {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    _bannedChannel = supabase
+        .channel('profile_changes_$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'profiles',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: userId,
+          ),
+          callback: (payload) {
+            final isBanned = payload.newRecord['is_banned'];
+            if (isBanned == true) {
+              _handleBannedUser();
+            }
+          },
+        )
+        .subscribe();
+  }
+
+  // ✅ Handle banned user logout
+  Future<void> _handleBannedUser() async {
+    try {
+      await supabase.auth.signOut();
+      
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Akun Anda telah dinonaktifkan oleh administrator.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error handling banned user: $e');
+    }
   }
 
   Future<void> _loadUserData() async {
