@@ -22,7 +22,7 @@ class RecipeCard extends StatelessWidget {
     final category = recipe['categories'];
     final categoryName = category?['name'] ?? 'Uncategorized';
     final categoryId = category?['id'];
-    
+
     final difficulty = recipe['difficulty'] ?? 'mudah';
     final difficultyColor = _getDifficultyColor(difficulty);
     final difficultyLabel = _getDifficultyLabel(difficulty);
@@ -79,7 +79,7 @@ class RecipeCard extends StatelessWidget {
                             ),
                     ),
                   ),
-                  
+
                   // Gradient Overlay
                   Positioned(
                     left: 0,
@@ -99,7 +99,7 @@ class RecipeCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+
                   // Rating Badge (Top Right)
                   if (rating != null)
                     Positioned(
@@ -135,81 +135,89 @@ class RecipeCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                  
-                  // Category Badge (Bottom Left on Image)
+
+                  // Category & Difficulty Badges (Bottom Row - Responsive)
                   Positioned(
-                    left: 8,
+                    left: 0,
+                    right: 0,
                     bottom: 8,
-                    child: GestureDetector(
-                      onTap: categoryId != null
-                          ? () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => CategoryRecipesScreen(
-                                    categoryId: categoryId,
-                                    categoryName: categoryName,
-                                  ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Row(
+                        children: [
+                          // Category Badge (Left)
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: categoryId != null
+                                  ? () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => CategoryRecipesScreen(
+                                            categoryId: categoryId,
+                                            categoryName: categoryName,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  : null,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFD4AF37).withValues(alpha: 0.95),
+                                  borderRadius: BorderRadius.circular(6),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.15),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
-                              );
-                            }
-                          : null,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFD4AF37).withValues(alpha: 0.95),
-                          borderRadius: BorderRadius.circular(6),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.15),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
+                                child: Text(
+                                  categoryName,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                             ),
-                          ],
-                        ),
-                        child: Text(
-                          categoryName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
                           ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  
-                  // Difficulty Badge (Bottom Right on Image)
-                  Positioned(
-                    right: 8,
-                    bottom: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: difficultyColor.withValues(alpha: 0.95),
-                        borderRadius: BorderRadius.circular(6),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.15),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
+                          const SizedBox(width: 8), // Jarak antar badge
+                          // Difficulty Badge (Right)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: difficultyColor.withValues(alpha: 0.95),
+                              borderRadius: BorderRadius.circular(6),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.15),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              difficultyLabel,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ],
-                      ),
-                      child: Text(
-                        difficultyLabel,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            
+
             // Info Section
             Container(
               padding: const EdgeInsets.all(12),
@@ -233,7 +241,7 @@ class RecipeCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  
+
                   // Description
                   if (recipe['description'] != null && recipe['description'].toString().isNotEmpty) ...[
                     const SizedBox(height: 4),
@@ -248,9 +256,9 @@ class RecipeCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  
+
                   const SizedBox(height: 8),
-                  
+
                   // Author Info
                   Row(
                     children: [
@@ -291,9 +299,9 @@ class RecipeCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 6),
-                  
+
                   // Time and Calories
                   Row(
                     children: [

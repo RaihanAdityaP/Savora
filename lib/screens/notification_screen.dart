@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/supabase_client.dart';
+import 'user_profile_screen.dart';
+import 'detail_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -92,6 +94,56 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
   }
 
+  Future<void> _deleteAllNotifications() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus Semua Notifikasi'),
+        content: const Text('Apakah Anda yakin ingin menghapus semua notifikasi?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Hapus Semua'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId != null) {
+        await supabase
+            .from('notifications')
+            .delete()
+            .eq('user_id', userId);
+        
+        _loadNotifications();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Semua notifikasi berhasil dihapus'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _deleteNotification(String notificationId) async {
     try {
       await supabase
@@ -115,6 +167,40 @@ class _NotificationScreenState extends State<NotificationScreen> {
           SnackBar(content: Text('Error: $e')),
         );
       }
+    }
+  }
+
+  void _handleNotificationTap(Map<String, dynamic> notification) {
+    if (!notification['is_read']) {
+      _markAsRead(notification['id']);
+    }
+
+    final type = notification['type'] ?? '';
+    final relatedId = notification['related_entity_id'];
+
+    if (relatedId == null) return;
+
+    switch (type) {
+      case 'new_follower':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => UserProfileScreen(userId: relatedId),
+          ),
+        );
+        break;
+      case 'new_recipe_from_following':
+      case 'recipe_approved':
+      case 'recipe_rejected':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DetailScreen(recipeId: relatedId),
+          ),
+        );
+        break;
+      default:
+        break;
     }
   }
 
@@ -142,8 +228,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return Colors.green;
       case 'recipe_rejected':
         return Colors.red;
-      case 'comment_reply':
+      case 'new_follower':
         return Colors.blue;
+      case 'new_recipe_from_following':
+        return Colors.orange;
       case 'admin':
         return const Color(0xFFD4AF37);
       default:
@@ -157,8 +245,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return Icons.check_circle;
       case 'recipe_rejected':
         return Icons.cancel;
-      case 'comment_reply':
-        return Icons.comment;
+      case 'new_follower':
+        return Icons.person_add;
+      case 'new_recipe_from_following':
+        return Icons.restaurant;
       case 'admin':
         return Icons.admin_panel_settings;
       default:
@@ -188,6 +278,26 @@ class _NotificationScreenState extends State<NotificationScreen> {
               onPressed: _markAllAsRead,
               tooltip: 'Tandai semua sudah dibaca',
             ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            onSelected: (value) {
+              if (value == 'delete_all') {
+                _deleteAllNotifications();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'delete_all',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_sweep, color: Colors.red, size: 20),
+                    SizedBox(width: 8),
+                    Text('Hapus Semua'),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
       body: _isLoading
@@ -267,6 +377,26 @@ class _NotificationScreenState extends State<NotificationScreen> {
     return Dismissible(
       key: Key(notification['id']),
       direction: DismissDirection.endToStart,
+      confirmDismiss: (direction) async {
+        return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Hapus Notifikasi'),
+            content: const Text('Apakah Anda yakin ingin menghapus notifikasi ini?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Batal'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Hapus'),
+              ),
+            ],
+          ),
+        );
+      },
       background: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
@@ -275,17 +405,27 @@ class _NotificationScreenState extends State<NotificationScreen> {
         ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        child: const Icon(Icons.delete, color: Colors.white),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.delete, color: Colors.white, size: 28),
+            SizedBox(height: 4),
+            Text(
+              'Hapus',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       ),
       onDismissed: (direction) {
         _deleteNotification(notification['id']);
       },
       child: GestureDetector(
-        onTap: () {
-          if (!isRead) {
-            _markAsRead(notification['id']);
-          }
-        },
+        onTap: () => _handleNotificationTap(notification),
         child: Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
