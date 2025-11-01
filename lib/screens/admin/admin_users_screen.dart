@@ -56,12 +56,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         final matchesSearch = _searchQuery.isEmpty ||
             (user['username']?.toLowerCase() ?? '').contains(_searchQuery.toLowerCase()) ||
             (user['full_name']?.toLowerCase() ?? '').contains(_searchQuery.toLowerCase());
-
         final isBanned = user['is_banned'] == true;
         final matchesStatus = _filterStatus == 'all' ||
             (_filterStatus == 'banned' && isBanned) ||
             (_filterStatus == 'active' && !isBanned);
-
         return matchesSearch && matchesStatus;
       }).toList();
     });
@@ -69,7 +67,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
   Future<void> _toggleBanUser(Map<String, dynamic> user) async {
     final isBanned = user['is_banned'] == true;
-    
     if (isBanned) {
       await _unbanUser(user);
     } else {
@@ -80,7 +77,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   Future<void> _showBanDialog(Map<String, dynamic> user) async {
     final reasonController = TextEditingController();
     String selectedReason = 'spam';
-    
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -168,12 +164,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         ),
       ),
     );
-
     if (confirmed == true) {
       final reason = selectedReason == 'other' && reasonController.text.isNotEmpty
           ? reasonController.text
           : _getReasonText(selectedReason);
-      
       await _banUser(user, reason);
     }
   }
@@ -199,7 +193,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     try {
       final adminId = supabase.auth.currentUser?.id;
       final now = DateTime.now().toIso8601String();
-      
       await supabase.from('profiles').update({
         'is_banned': true,
         'banned_at': now,
@@ -264,11 +257,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         ],
       ),
     );
-
     if (confirm == true) {
       try {
         final adminId = supabase.auth.currentUser?.id;
-        
         await supabase.from('profiles').update({
           'is_banned': false,
           'banned_at': null,
@@ -309,34 +300,66 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     }
   }
 
-  Future<void> _showBanDetails(Map<String, dynamic> user) async {
+  void _showBanDetails(Map<String, dynamic> user) {
+    final reason = user['banned_reason'] ?? 'Tidak disebutkan';
+    final bannedAt = user['banned_at'];
+    final bannedBy = user['banned_by_admin']?['username'] ?? 'Admin Tidak Diketahui';
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Detail Ban'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildDetailRow('Username', user['username'] ?? '-'),
-              _buildDetailRow('Alasan', user['banned_reason'] ?? '-'),
-              _buildDetailRow(
-                'Waktu',
-                user['banned_at'] != null
-                    ? _formatDateTime(user['banned_at'])
-                    : '-',
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.block, color: Colors.red.shade700),
+            const SizedBox(width: 8),
+            const Text('Akun Dinonaktifkan'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Akun ini telah dinonaktifkan oleh administrator.',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            const Text('Alasan:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
               ),
-              _buildDetailRow(
-                'Oleh',
-                user['banned_by_admin']?['username'] ?? '-',
+              child: Text(
+                reason,
+                style: TextStyle(color: Colors.red.shade700),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text('Dinonaktifkan oleh:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(bannedBy),
+            if (bannedAt != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Waktu: ${_formatDateTime(bannedAt)}',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
             ],
-          ),
+            const SizedBox(height: 16),
+            const Text(
+              'Anda dapat mengaktifkan kembali akun ini kapan saja.',
+              style: TextStyle(fontSize: 13),
+            ),
+          ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Tutup'),
           ),
         ],
@@ -344,52 +367,29 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-              color: Colors.grey,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 14),
-          ),
-        ],
-      ),
-    );
-  }
-
   String _formatDateTime(String dateTimeStr) {
-    final dateTime = DateTime.parse(dateTimeStr);
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays > 0) {
-      return '${difference.inDays} hari lalu';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours} jam lalu';
-    } else {
-      return '${difference.inMinutes} menit lalu';
+    try {
+      final dateTime = DateTime.parse(dateTimeStr);
+      final now = DateTime.now();
+      final difference = now.difference(dateTime);
+      if (difference.inDays > 0) {
+        return '${difference.inDays} hari yang lalu';
+      } else if (difference.inHours > 0) {
+        return '${difference.inHours} jam yang lalu';
+      } else {
+        return '${difference.inMinutes} menit yang lalu';
+      }
+    } catch (e) {
+      return dateTimeStr;
     }
   }
 
   Future<void> _togglePremium(Map<String, dynamic> user) async {
     final isPremium = user['is_premium'] == true;
-    
     try {
       await supabase.from('profiles').update({
         'is_premium': !isPremium,
       }).eq('id', user['id']);
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

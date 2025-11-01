@@ -3,6 +3,7 @@ import '../utils/supabase_client.dart';
 import '../widgets/custom_bottom_nav.dart';
 import 'home_screen.dart';
 import 'edit_recipe_screen.dart';
+import 'user_profile_screen.dart';
 
 class DetailScreen extends StatefulWidget {
   final String recipeId;
@@ -584,14 +585,28 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
-  Widget _buildUserInfo() {
-    final profile = _recipe!['profiles'];
-    final username = profile?['username'] ?? 'Anonymous';
-    final avatarUrl = profile?['avatar_url'];
-    final role = profile?['role'] ?? 'user';
-    final isPremium = profile?['is_premium'] ?? false;
+Widget _buildUserInfo() {
+  final profile = _recipe!['profiles'];
+  final username = profile?['username'] ?? 'Anonymous';
+  final avatarUrl = profile?['avatar_url'];
+  final role = profile?['role'] ?? 'user';
+  final isPremium = profile?['is_premium'] ?? false;
+  final userId = _recipe!['user_id'];
+  
+  final bool canNavigate = userId != null;
 
-    return Container(
+  return GestureDetector(
+    onTap: canNavigate
+        ? () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => UserProfileScreen(userId: userId.toString()),
+              ),
+            );
+          }
+        : null,
+    child: Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -687,10 +702,13 @@ class _DetailScreenState extends State<DetailScreen> {
               ],
             ),
           ),
+          if (canNavigate)
+            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey.shade400),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildInfoChips() {
     return Column(
