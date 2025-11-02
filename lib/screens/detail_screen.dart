@@ -5,8 +5,10 @@ import 'home_screen.dart';
 import 'edit_recipe_screen.dart';
 import 'user_profile_screen.dart';
 
+/// DetailScreen menampilkan informasi lengkap resep berdasarkan ID.
+/// Termasuk rating, komentar, dan aksi seperti favorite, edit, atau hapus.
 class DetailScreen extends StatefulWidget {
-  final String recipeId;
+  final String recipeId; // ID resep yang akan ditampilkan
   const DetailScreen({super.key, required this.recipeId});
 
   @override
@@ -14,30 +16,31 @@ class DetailScreen extends StatefulWidget {
 }
 
 class _DetailScreenState extends State<DetailScreen> {
-  Map<String, dynamic>? _recipe;
-  bool _isLoading = true;
-  bool _isFavorite = false;
-  int? _userRating;
-  double? _averageRating;
-  int? _ratingCount;
-  List<Map<String, dynamic>> _comments = [];
-  final TextEditingController _commentController = TextEditingController();
-  String? _userAvatarUrl;
-  String? _currentUserId;
+  Map<String, dynamic>? _recipe; // Data resep dari database
+  bool _isLoading = true; // Menunjukkan apakah data sedang dimuat
+  bool _isFavorite = false; // Status apakah resep difavoritkan oleh pengguna
+  int? _userRating; // Rating yang diberikan pengguna saat ini
+  double? _averageRating; // Rata-rata rating dari semua pengguna
+  int? _ratingCount; // Jumlah total rating
+  List<Map<String, dynamic>> _comments = []; // Daftar komentar pada resep
+  final TextEditingController _commentController = TextEditingController(); // Controller input komentar
+  String? _userAvatarUrl; // URL avatar pengguna saat ini (untuk bottom nav)
+  String? _currentUserId; // ID pengguna yang sedang login
 
   @override
   void initState() {
     super.initState();
-    _currentUserId = supabase.auth.currentUser?.id;
-    _initializeScreen();
+    _currentUserId = supabase.auth.currentUser?.id; // Ambil ID pengguna saat ini
+    _initializeScreen(); // Mulai memuat semua data yang dibutuhkan
   }
 
   @override
   void dispose() {
-    _commentController.dispose();
+    _commentController.dispose(); // Bebaskan memori controller
     super.dispose();
   }
 
+  /// Memanggil semua fungsi pemuatan data secara paralel untuk efisiensi
   Future<void> _initializeScreen() async {
     await Future.wait([
       _loadRecipe(),
@@ -49,6 +52,7 @@ class _DetailScreenState extends State<DetailScreen> {
     ]);
   }
 
+  /// Memuat avatar pengguna saat ini untuk ditampilkan di bottom navigation
   Future<void> _loadUserAvatar() async {
     try {
       final userId = supabase.auth.currentUser?.id;
@@ -58,7 +62,7 @@ class _DetailScreenState extends State<DetailScreen> {
             .select('avatar_url')
             .eq('id', userId)
             .single();
-        if (!mounted) return;
+        if (!mounted) return; // Hindari setState jika widget sudah tidak ada
         setState(() => _userAvatarUrl = response['avatar_url']);
       }
     } catch (e) {
@@ -66,14 +70,33 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
+  /// Memuat data resep dan rating rata-rata dari database
+  /// Jika resep tidak ditemukan, tampilkan "Recipe not found"
   Future<void> _loadRecipe() async {
     try {
-      final response = await supabase
-          .from('recipes')
-          .select('*, profiles!recipes_user_id_fkey(username, avatar_url, role, is_premium)')
-          .eq('id', widget.recipeId)
-          .single();
+      // Coba ambil resep berdasarkan ID
+      Map<String, dynamic>? response;
+      try {
+        response = await supabase
+            .from('recipes')
+            .select('*, profiles!recipes_user_id_fkey(username, avatar_url, role, is_premium)')
+            .eq('id', widget.recipeId)
+            .single();
+      } catch (e) {
+        // Jika error (misal: ID tidak valid), lanjutkan ke setState null
+        debugPrint('Error loading recipe: $e');
+      }
 
+      if (response == null) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _recipe = null; // Tampilkan "Recipe not found" di UI
+        });
+        return;
+      }
+
+      // Ambil rating terkait resep ini
       final ratingResponse = await supabase
           .from('recipe_ratings')
           .select('rating')
@@ -90,12 +113,17 @@ class _DetailScreenState extends State<DetailScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      debugPrint('Unexpected error in _loadRecipe: $e');
       if (!mounted) return;
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _recipe = null;
+      });
       _showSnackBar('Error loading recipe: $e');
     }
   }
 
+  /// Menambahkan jumlah views setiap kali resep dibuka
   Future<void> _incrementViews() async {
     try {
       final current = await supabase
@@ -112,6 +140,7 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
+  /// Memeriksa apakah resep ini ada di daftar favorit pengguna
   Future<void> _checkIfFavorite() async {
     try {
       final userId = supabase.auth.currentUser?.id;
@@ -130,6 +159,7 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
+  /// Memuat rating yang diberikan pengguna saat ini pada resep ini
   Future<void> _loadUserRating() async {
     try {
       final userId = supabase.auth.currentUser?.id;
@@ -148,6 +178,7 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
+  /// Toggle status favorit: tambah atau hapus dari daftar favorit
   Future<void> _toggleFavorite() async {
     try {
       final userId = supabase.auth.currentUser?.id;
@@ -177,6 +208,7 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
+  /// Kirim atau perbarui rating pengguna
   Future<void> _submitRating(int rating) async {
     try {
       final userId = supabase.auth.currentUser?.id;
@@ -208,13 +240,14 @@ class _DetailScreenState extends State<DetailScreen> {
 
       if (!mounted) return;
       setState(() => _userRating = rating);
-      await _loadRecipe();
+      await _loadRecipe(); // Refresh data termasuk average rating
       _showSnackBar('Rating ${existingRating != null ? 'updated' : 'submitted'}!');
     } catch (e) {
       _showSnackBar('Failed to submit rating: $e');
     }
   }
 
+  /// Memuat daftar komentar beserta data profil pengguna yang berkomentar
   Future<void> _loadComments() async {
     try {
       final response = await supabase
@@ -229,6 +262,7 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
+  /// Kirim komentar baru ke database
   Future<void> _postComment() async {
     if (_commentController.text.trim().isEmpty) {
       _showSnackBar('Comment cannot be empty.');
@@ -248,7 +282,7 @@ class _DetailScreenState extends State<DetailScreen> {
       });
 
       _commentController.clear();
-      await _loadComments();
+      await _loadComments(); // Refresh daftar komentar
       if (!mounted) return;
       _showSnackBar('Comment posted!');
     } catch (e) {
@@ -256,6 +290,7 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
+  /// Edit komentar yang sudah ada
   Future<void> _editComment(String commentId, String newContent) async {
     if (newContent.trim().isEmpty) return;
     try {
@@ -271,6 +306,7 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
+  /// Hapus komentar setelah konfirmasi
   Future<void> _deleteComment(String commentId) async {
     final confirm = await _showConfirmDialog(
       'Hapus Komentar',
@@ -288,6 +324,7 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
+  /// Hapus resep beserta semua data terkait (komentar, rating, favorit)
   Future<void> _deleteRecipe() async {
     final confirm = await _showConfirmDialog(
       'Hapus Resep',
@@ -296,6 +333,7 @@ class _DetailScreenState extends State<DetailScreen> {
 
     if (confirm == true) {
       try {
+        // Hapus data terkait secara kaskade
         await supabase.from('comments').delete().eq('recipe_id', widget.recipeId);
         await supabase.from('recipe_ratings').delete().eq('recipe_id', widget.recipeId);
         await supabase.from('favorites').delete().eq('recipe_id', widget.recipeId);
@@ -303,6 +341,7 @@ class _DetailScreenState extends State<DetailScreen> {
 
         if (!mounted) return;
         _showSnackBar('Resep berhasil dihapus!');
+        // Kembali ke HomeScreen dan hapus semua route sebelumnya
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -314,11 +353,13 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
+  /// Menampilkan pesan singkat di bagian bawah layar
   void _showSnackBar(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  /// Menampilkan dialog konfirmasi dengan tombol "Batal" dan "Hapus"
   Future<bool?> _showConfirmDialog(String title, String content) {
     return showDialog<bool>(
       context: context,
@@ -340,6 +381,7 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
+  /// Menampilkan dialog untuk mengedit komentar
   void _showEditCommentDialog(String commentId, String currentContent) {
     final controller = TextEditingController(text: currentContent);
     showDialog(
@@ -370,6 +412,7 @@ class _DetailScreenState extends State<DetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Tentukan apakah pengguna bisa mengedit/hapus resep
     final userRole = _recipe?['profiles']?['role'] as String? ?? 'user';
     final isOwner = _currentUserId == _recipe?['user_id'].toString();
     final canEdit = isOwner || userRole == 'admin';
@@ -377,9 +420,9 @@ class _DetailScreenState extends State<DetailScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF8F0),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator()) // Tampilkan loading
           : _recipe == null
-              ? const Center(child: Text('Recipe not found'))
+              ? const Center(child: Text('Recipe not found')) // Resep tidak ditemukan
               : CustomScrollView(
                   slivers: [
                     _buildAppBar(canEdit),
@@ -426,11 +469,12 @@ class _DetailScreenState extends State<DetailScreen> {
       bottomNavigationBar: CustomBottomNav(
         currentIndex: 0,
         avatarUrl: _userAvatarUrl,
-        onRefresh: _loadRecipe,
+        onRefresh: _loadRecipe, // Refresh saat tap bottom nav
       ),
     );
   }
 
+  /// AppBar dengan tombol kembali, edit, hapus, dan bookmark
   Widget _buildAppBar(bool canEdit) {
     return SliverAppBar(
       expandedHeight: 300,
@@ -519,6 +563,7 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
+  /// Menampilkan judul dan deskripsi resep
   Widget _buildHeader() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -540,6 +585,7 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
+  /// Menampilkan rata-rata rating dan bintang interaktif untuk memberi rating
   Widget _buildRatingSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -585,131 +631,133 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
-Widget _buildUserInfo() {
-  final profile = _recipe!['profiles'];
-  final username = profile?['username'] ?? 'Anonymous';
-  final avatarUrl = profile?['avatar_url'];
-  final role = profile?['role'] ?? 'user';
-  final isPremium = profile?['is_premium'] ?? false;
-  final userId = _recipe!['user_id'];
-  
-  final bool canNavigate = userId != null;
+  /// Menampilkan info pembuat resep + navigasi ke profilnya
+  Widget _buildUserInfo() {
+    final profile = _recipe!['profiles'];
+    final username = profile?['username'] ?? 'Anonymous';
+    final avatarUrl = profile?['avatar_url'];
+    final role = profile?['role'] ?? 'user';
+    final isPremium = profile?['is_premium'] ?? false;
+    final userId = _recipe!['user_id'];
 
-  return GestureDetector(
-    onTap: canNavigate
-        ? () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => UserProfileScreen(userId: userId.toString()),
-              ),
-            );
-          }
-        : null,
-    child: Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: role == 'admin'
-                    ? const Color(0xFFD4AF37)
-                    : isPremium
-                        ? const Color(0xFFE5BFA5)
-                        : Colors.grey[300]!,
-                width: role == 'admin' || isPremium ? 2 : 1,
-              ),
-            ),
-            child: ClipOval(
-              child: avatarUrl != null
-                  ? Image.network(avatarUrl, fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) =>
-                          const Icon(Icons.person, size: 24, color: Colors.grey))
-                  : const Icon(Icons.person, size: 24, color: Colors.grey),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  username,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF5C4033),
-                  ),
+    final bool canNavigate = userId != null;
+
+    return GestureDetector(
+      onTap: canNavigate
+          ? () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => UserProfileScreen(userId: userId.toString()),
                 ),
-                const SizedBox(height: 2),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: role == 'admin'
-                        ? const Color(0xFFD4AF37)
-                        : isPremium
-                            ? const Color(0xFFE5BFA5)
-                            : Colors.grey[300],
-                    borderRadius: BorderRadius.circular(10),
+              );
+            }
+          : null,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: role == 'admin'
+                      ? const Color(0xFFD4AF37)
+                      : isPremium
+                          ? const Color(0xFFE5BFA5)
+                          : Colors.grey[300]!,
+                  width: role == 'admin' || isPremium ? 2 : 1,
+                ),
+              ),
+              child: ClipOval(
+                child: avatarUrl != null
+                    ? Image.network(avatarUrl, fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) =>
+                            const Icon(Icons.person, size: 24, color: Colors.grey))
+                    : const Icon(Icons.person, size: 24, color: Colors.grey),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    username,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF5C4033),
+                    ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        role == 'admin'
-                            ? Icons.admin_panel_settings
-                            : isPremium
-                                ? Icons.workspace_premium
-                                : Icons.person,
-                        size: 12,
-                        color: role == 'admin' || isPremium
-                            ? Colors.white
-                            : Colors.grey[700],
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        role == 'admin'
-                            ? 'ADMIN'
-                            : isPremium
-                                ? 'SAVORA CHEF'
-                                : 'PENGGUNA',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: role == 'admin'
+                          ? const Color(0xFFD4AF37)
+                          : isPremium
+                              ? const Color(0xFFE5BFA5)
+                              : Colors.grey[300],
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          role == 'admin'
+                              ? Icons.admin_panel_settings
+                              : isPremium
+                                  ? Icons.workspace_premium
+                                  : Icons.person,
+                          size: 12,
                           color: role == 'admin' || isPremium
                               ? Colors.white
                               : Colors.grey[700],
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Text(
+                          role == 'admin'
+                              ? 'ADMIN'
+                              : isPremium
+                                  ? 'SAVORA CHEF'
+                                  : 'PENGGUNA',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: role == 'admin' || isPremium
+                                ? Colors.white
+                                : Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          if (canNavigate)
-            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey.shade400),
-        ],
+            if (canNavigate)
+              Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey.shade400),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
+  /// Menampilkan chip info: waktu masak, porsi, tingkat kesulitan, kalori
   Widget _buildInfoChips() {
     return Column(
       children: [
@@ -752,6 +800,7 @@ Widget _buildUserInfo() {
     );
   }
 
+  /// Membuat satu chip info dengan ikon dan label
   Widget _buildInfoChip(String value, String label, Color color, IconData icon) {
     return Expanded(
       child: Container(
@@ -807,6 +856,7 @@ Widget _buildUserInfo() {
     );
   }
 
+  /// Judul bagian (misal: "Ingredients", "Steps")
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
@@ -818,6 +868,7 @@ Widget _buildUserInfo() {
     );
   }
 
+  /// Menampilkan daftar bahan
   Widget _buildIngredientsList() {
     final ingredients = _recipe!['ingredients'] as List<dynamic>?;
     if (ingredients == null || ingredients.isEmpty) {
@@ -850,6 +901,7 @@ Widget _buildUserInfo() {
     );
   }
 
+  /// Satu item bahan dengan centang dan opsi kuantitas
   Widget _buildIngredientItem(String name, String? quantity) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -913,6 +965,7 @@ Widget _buildUserInfo() {
     );
   }
 
+  /// Menampilkan langkah-langkah memasak
   Widget _buildStepsList() {
     final steps = _recipe!['steps'] as List<dynamic>?;
     if (steps == null || steps.isEmpty) {
@@ -1000,6 +1053,7 @@ Widget _buildUserInfo() {
     );
   }
 
+  /// Input teks untuk menulis komentar baru
   Widget _buildCommentInput() {
     return Container(
       decoration: BoxDecoration(
@@ -1026,6 +1080,8 @@ Widget _buildUserInfo() {
     );
   }
 
+  /// Menampilkan daftar komentar dengan avatar, username, dan aksi edit/hapus
+  /// ✅ Avatar dan username bisa diklik → navigasi ke profil pengguna
   Widget _buildCommentsList() {
     if (_comments.isEmpty) {
       return const Text('No comments yet. Be the first to comment!');
@@ -1040,6 +1096,7 @@ Widget _buildUserInfo() {
         final username = profile?['username'] ?? 'Anonymous';
         final avatarUrl = profile?['avatar_url'];
         final isOwner = _currentUserId == comment['user_id'].toString();
+        final userId = comment['user_id'].toString();
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -1053,48 +1110,63 @@ Widget _buildUserInfo() {
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.grey[300],
-                    ),
-                    child: ClipOval(
-                      child: avatarUrl != null
-                          ? Image.network(
-                              avatarUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => const Icon(
-                                Icons.person,
-                                size: 18,
-                                color: Colors.grey,
-                              ),
-                            )
-                          : const Icon(Icons.person, size: 18, color: Colors.grey),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  // 🔗 Avatar + Username bisa diklik → navigasi ke profil pengguna
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => UserProfileScreen(userId: userId),
+                        ),
+                      );
+                    },
+                    child: Row(
                       children: [
-                        Text(
-                          username,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF5C4033),
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.grey[300],
+                          ),
+                          child: ClipOval(
+                            child: avatarUrl != null
+                                ? Image.network(
+                                    avatarUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => const Icon(
+                                      Icons.person,
+                                      size: 18,
+                                      color: Colors.grey,
+                                    ),
+                                  )
+                                : const Icon(Icons.person, size: 18, color: Colors.grey),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          comment['content'] ?? '',
-                          style: const TextStyle(fontSize: 14, color: Color(0xFF5C4033)),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              username,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF5C4033),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              comment['content'] ?? '',
+                              style: const TextStyle(fontSize: 14, color: Color(0xFF5C4033)),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
+                  const Spacer(),
+                  // Menu edit/hapus hanya muncul untuk pemilik komentar
                   if (isOwner)
                     PopupMenuButton<String>(
                       onSelected: (value) {

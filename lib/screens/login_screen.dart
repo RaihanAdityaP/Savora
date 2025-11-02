@@ -5,6 +5,7 @@ import '../utils/supabase_client.dart';
 import 'register_screen.dart';
 import 'home_screen.dart';
 
+/// Menangani autentikasi, verifikasi email, dan pengecekan akun banned.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -13,11 +14,11 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _isLoading = false;
-  bool _obscurePassword = true;
-  bool _isGoogleLoading = false;
+  final _emailController = TextEditingController(); // Controller input email
+  final _passwordController = TextEditingController(); // Controller input password
+  bool _isLoading = false; // Status loading saat login dengan email
+  bool _obscurePassword = true; // Status apakah password disembunyikan
+  bool _isGoogleLoading = false; // Status loading saat login dengan Google
 
   @override
   void dispose() {
@@ -26,10 +27,12 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  /// Login menggunakan akun Google
   Future<void> _signInWithGoogle() async {
     setState(() => _isGoogleLoading = true);
 
     try {
+      // Client ID untuk autentikasi Google di web
       const webClientId = '928387294220-hb6h1ioaok3fksdkp0vh8fv0an9im27l.apps.googleusercontent.com';
 
       final GoogleSignIn googleSignIn = GoogleSignIn(
@@ -49,6 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception('Google authentication failed: missing idToken');
       }
 
+      // Login ke Supabase menggunakan token Google
       final authResponse = await supabase.auth.signInWithIdToken(
         provider: OAuthProvider.google,
         idToken: idToken,
@@ -58,6 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception('Login gagal');
       }
 
+      // Periksa apakah akun dibanned
       final profile = await supabase
           .from('profiles')
           .select('is_banned, banned_reason, banned_at')
@@ -78,6 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
+      // Arahkan ke HomeScreen setelah login sukses
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -98,6 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// Login menggunakan email dan password
   Future<void> _signIn() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -121,6 +128,7 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception('Login gagal');
       }
 
+      // Periksa status banned
       final profile = await supabase
           .from('profiles')
           .select('is_banned, banned_reason, banned_at')
@@ -196,6 +204,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// Menampilkan dialog untuk mengirim ulang email verifikasi
   Future<void> _showResendVerificationDialog() async {
     final emailController = TextEditingController();
 
@@ -302,6 +311,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  /// Menampilkan dialog jika akun dibanned
   void _showBannedDialog({required String reason, String? bannedAt}) {
     showDialog(
       context: context,
@@ -364,6 +374,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  /// Memformat timestamp menjadi "X hari/jam/menit yang lalu"
   String _formatDateTime(String dateTimeStr) {
     try {
       final dateTime = DateTime.parse(dateTimeStr);
@@ -385,7 +396,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE5BFA5),
+      backgroundColor: const Color(0xFFE5BFA5), // Warna latar belakang halaman
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -393,7 +404,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo
+                // Logo aplikasi
                 Image.asset(
                   'assets/images/logo.png',
                   width: 100,
@@ -420,7 +431,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 20),
 
                 const Text(
-                  'Savora',
+                  'Welcome',
                   style: TextStyle(
                     fontSize: 36,
                     fontWeight: FontWeight.bold,
@@ -430,18 +441,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                const Text(
-                  'WELCOME',
-                  style: TextStyle(
-                    fontSize: 16,
-                    letterSpacing: 3,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                const SizedBox(height: 50),
-
-                // Email
+                // Input email
                 Container(
                   constraints: const BoxConstraints(maxWidth: 350),
                   child: TextField(
@@ -480,7 +480,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Password
+                // Input password
                 Container(
                   constraints: const BoxConstraints(maxWidth: 350),
                   child: TextField(
@@ -530,7 +530,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 40),
 
-                // Login Button
+                // Tombol login
                 Container(
                   constraints: const BoxConstraints(maxWidth: 350),
                   height: 54,
@@ -566,7 +566,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // OR Divider
+                // Garis pemisah "OR"
                 Container(
                   constraints: const BoxConstraints(maxWidth: 350),
                   child: Row(
@@ -588,7 +588,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Google Sign In
+                // Tombol Google Sign-In
                 Container(
                   constraints: const BoxConstraints(maxWidth: 350),
                   height: 54,
@@ -631,7 +631,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Belum Verifikasi Email?
+                // Tautan kirim ulang verifikasi email
                 TextButton(
                   onPressed: _showResendVerificationDialog,
                   child: Text(
@@ -645,7 +645,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Sign Up
+                // Tautan ke halaman registrasi
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
