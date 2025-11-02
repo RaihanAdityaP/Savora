@@ -28,14 +28,35 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           .from('profiles')
           .select('''
             id, username, full_name, role, is_banned, is_premium, avatar_url, 
-            created_at, banned_reason, banned_at, banned_by,
-            banned_by_admin:profiles!banned_by(username)
+            created_at, banned_reason, banned_at, banned_by
           ''')
           .order('created_at', ascending: false);
 
+      // Fetch banned_by admin username separately for each banned user
+      final List<Map<String, dynamic>> usersWithAdminInfo = [];
+      for (var user in response) {
+        final userData = Map<String, dynamic>.from(user);
+        
+        if (user['banned_by'] != null) {
+          try {
+            final adminData = await supabase
+                .from('profiles')
+                .select('username')
+                .eq('id', user['banned_by'])
+                .maybeSingle();
+            
+            userData['banned_by_admin_username'] = adminData?['username'] ?? 'Admin Tidak Diketahui';
+          } catch (e) {
+            userData['banned_by_admin_username'] = 'Admin Tidak Diketahui';
+          }
+        }
+        
+        usersWithAdminInfo.add(userData);
+      }
+
       if (mounted) {
         setState(() {
-          _users = List<Map<String, dynamic>>.from(response);
+          _users = usersWithAdminInfo;
           _applyFilters();
           _isLoading = false;
         });
@@ -303,11 +324,11 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   void _showBanDetails(Map<String, dynamic> user) {
     final reason = user['banned_reason'] ?? 'Tidak disebutkan';
     final bannedAt = user['banned_at'];
-    final bannedBy = user['banned_by_admin']?['username'] ?? 'Admin Tidak Diketahui';
+    final bannedBy = user['banned_by_admin_username'] ?? 'Admin Tidak Diketahui';
 
     showDialog(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (dialogContext) => AlertDialog(
         title: Row(
           children: [
@@ -628,8 +649,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                   ),
                 ),
                 if (isBanned)
-                  GestureDetector(
+                  InkWell(
                     onTap: () => _showBanDetails(user),
+                    borderRadius: BorderRadius.circular(6),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
@@ -658,25 +680,29 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             ),
             if (isBanned && user['banned_reason'] != null) ...[
               const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.warning_amber, size: 16, color: Colors.red.shade700),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        user['banned_reason'],
-                        style: TextStyle(fontSize: 12, color: Colors.red.shade700),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+              InkWell(
+                onTap: () => _showBanDetails(user),
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber, size: 16, color: Colors.red.shade700),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          user['banned_reason'],
+                          style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
