@@ -26,6 +26,7 @@ class _DetailScreenState extends State<DetailScreen> {
   final TextEditingController _commentController = TextEditingController(); // Controller input komentar
   String? _userAvatarUrl; // URL avatar pengguna saat ini (untuk bottom nav)
   String? _currentUserId; // ID pengguna yang sedang login
+  String? _currentUserRole; // Role pengguna yang sedang login (baru ditambahkan)
 
   @override
   void initState() {
@@ -48,22 +49,25 @@ class _DetailScreenState extends State<DetailScreen> {
       _checkIfFavorite(),
       _loadUserRating(),
       _loadComments(),
-      _loadUserAvatar(),
+      _loadCurrentUserProfile(), // ✅ Ganti dari _loadUserAvatar()
     ]);
   }
 
-  /// Memuat avatar pengguna saat ini untuk ditampilkan di bottom navigation
-  Future<void> _loadUserAvatar() async {
+  /// Memuat avatar dan role pengguna saat ini untuk UI dan penentuan hak akses
+  Future<void> _loadCurrentUserProfile() async {
     try {
       final userId = supabase.auth.currentUser?.id;
       if (userId != null) {
         final response = await supabase
             .from('profiles')
-            .select('avatar_url')
+            .select('avatar_url, role')
             .eq('id', userId)
             .single();
         if (!mounted) return; // Hindari setState jika widget sudah tidak ada
-        setState(() => _userAvatarUrl = response['avatar_url']);
+        setState(() {
+          _userAvatarUrl = response['avatar_url'];
+          _currentUserRole = response['role']; // Simpan role pengguna saat ini
+        });
       }
     } catch (e) {
       debugPrint('Error loading user avatar: $e');
@@ -86,7 +90,6 @@ class _DetailScreenState extends State<DetailScreen> {
         // Jika error (misal: ID tidak valid), lanjutkan ke setState null
         debugPrint('Error loading recipe: $e');
       }
-
       if (response == null) {
         if (!mounted) return;
         setState(() {
@@ -95,13 +98,11 @@ class _DetailScreenState extends State<DetailScreen> {
         });
         return;
       }
-
       // Ambil rating terkait resep ini
       final ratingResponse = await supabase
           .from('recipe_ratings')
           .select('rating')
           .eq('recipe_id', widget.recipeId);
-
       if (!mounted) return;
       setState(() {
         _recipe = response;
@@ -186,7 +187,6 @@ class _DetailScreenState extends State<DetailScreen> {
         _showSnackBar('Please log in to favorite.');
         return;
       }
-
       if (_isFavorite) {
         await supabase
             .from('favorites')
@@ -199,7 +199,6 @@ class _DetailScreenState extends State<DetailScreen> {
           'recipe_id': widget.recipeId,
         });
       }
-
       if (!mounted) return;
       setState(() => _isFavorite = !_isFavorite);
       _showSnackBar(_isFavorite ? 'Added to favorites!' : 'Removed from favorites.');
@@ -216,14 +215,12 @@ class _DetailScreenState extends State<DetailScreen> {
         _showSnackBar('Please log in to rate.');
         return;
       }
-
       final existingRating = await supabase
           .from('recipe_ratings')
           .select()
           .eq('user_id', userId)
           .eq('recipe_id', widget.recipeId)
           .maybeSingle();
-
       if (existingRating != null) {
         await supabase
             .from('recipe_ratings')
@@ -237,7 +234,6 @@ class _DetailScreenState extends State<DetailScreen> {
           'rating': rating,
         });
       }
-
       if (!mounted) return;
       setState(() => _userRating = rating);
       await _loadRecipe(); // Refresh data termasuk average rating
@@ -274,13 +270,11 @@ class _DetailScreenState extends State<DetailScreen> {
         _showSnackBar('Please log in to comment.');
         return;
       }
-
       await supabase.from('comments').insert({
         'recipe_id': widget.recipeId,
         'user_id': userId,
         'content': _commentController.text.trim(),
       });
-
       _commentController.clear();
       await _loadComments(); // Refresh daftar komentar
       if (!mounted) return;
@@ -330,7 +324,6 @@ class _DetailScreenState extends State<DetailScreen> {
       'Hapus Resep',
       'Apakah Anda yakin ingin menghapus resep ini? Tindakan ini tidak dapat dibatalkan.',
     );
-
     if (confirm == true) {
       try {
         // Hapus data terkait secara kaskade
@@ -338,7 +331,6 @@ class _DetailScreenState extends State<DetailScreen> {
         await supabase.from('recipe_ratings').delete().eq('recipe_id', widget.recipeId);
         await supabase.from('favorites').delete().eq('recipe_id', widget.recipeId);
         await supabase.from('recipes').delete().eq('id', widget.recipeId);
-
         if (!mounted) return;
         _showSnackBar('Resep berhasil dihapus!');
         // Kembali ke HomeScreen dan hapus semua route sebelumnya
@@ -412,10 +404,10 @@ class _DetailScreenState extends State<DetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Tentukan apakah pengguna bisa mengedit/hapus resep
-    final userRole = _recipe?['profiles']?['role'] as String? ?? 'user';
+    // ✅ Perbaikan logika canEdit: gunakan role pengguna saat ini, bukan role pemilik resep
     final isOwner = _currentUserId == _recipe?['user_id'].toString();
-    final canEdit = isOwner || userRole == 'admin';
+    final isCurrentUserAdmin = _currentUserRole == 'admin';
+    final canEdit = isOwner || isCurrentUserAdmin;
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF8F0),
@@ -639,9 +631,7 @@ class _DetailScreenState extends State<DetailScreen> {
     final role = profile?['role'] ?? 'user';
     final isPremium = profile?['is_premium'] ?? false;
     final userId = _recipe!['user_id'];
-
     final bool canNavigate = userId != null;
-
     return GestureDetector(
       onTap: canNavigate
           ? () {
@@ -1097,7 +1087,6 @@ class _DetailScreenState extends State<DetailScreen> {
         final avatarUrl = profile?['avatar_url'];
         final isOwner = _currentUserId == comment['user_id'].toString();
         final userId = comment['user_id'].toString();
-
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(12),
