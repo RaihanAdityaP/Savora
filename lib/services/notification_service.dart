@@ -27,7 +27,7 @@ class NotificationService {
     }
 
     try {
-      // Android Initialization Settings
+      // ✅ Android Initialization Settings with proper channel configuration
       const AndroidInitializationSettings initializationSettingsAndroid =
           AndroidInitializationSettings('@mipmap/ic_launcher');
 
@@ -36,21 +36,51 @@ class NotificationService {
         android: initializationSettingsAndroid,
       );
 
-      // Initialize plugin
+      // ✅ Initialize plugin with proper callback
       await _flutterLocalNotificationsPlugin.initialize(
         initializationSettings,
         onDidReceiveNotificationResponse: _onNotificationTapped,
       );
 
-      // Request permission for Android 13+
+      // ✅ Request permission for Android 13+
       await _requestPermission();
+
+      // ✅ Create notification channel AFTER initialization
+      await _createNotificationChannel();
 
       _isInitialized = true;
       debugPrint('✅ NotificationService initialized successfully');
     } catch (e) {
       debugPrint('❌ Error initializing NotificationService: $e');
-      // Set as initialized even on error to prevent repeated initialization attempts
-      _isInitialized = true;
+      _isInitialized = true; // Set to prevent repeated initialization
+    }
+  }
+
+  /// ✅ Create Android notification channel (CRITICAL for Android 8.0+)
+  Future<void> _createNotificationChannel() async {
+    if (kIsWeb) return;
+
+    try {
+      const AndroidNotificationChannel channel = AndroidNotificationChannel(
+        'savora_channel', // Must match channel ID in showNotification
+        'Savora Notifications',
+        description: 'Notifikasi dari aplikasi Savora',
+        importance: Importance.high,
+        enableVibration: true,
+        playSound: true,
+        showBadge: true,
+      );
+
+      final androidImplementation = _flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+
+      if (androidImplementation != null) {
+        await androidImplementation.createNotificationChannel(channel);
+        debugPrint('✅ Notification channel created: ${channel.id}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error creating notification channel: $e');
     }
   }
 
@@ -79,13 +109,11 @@ class NotificationService {
 
     if (payload != null) {
       debugPrint('🎯 Notification tapped with payload: $payload');
-      // Payload format: "type:id" 
-      // Example: "recipe:123" or "follower:user-id"
-      // Navigation will be handled in main.dart or via external callback
+      // Navigation will be handled in main.dart
     }
   }
 
-  /// Show local notification
+  /// ✅ Show local notification with PROPER channel configuration
   Future<void> showNotification({
     required String title,
     required String body,
@@ -103,10 +131,11 @@ class NotificationService {
     }
 
     try {
+      // ✅ Proper Android notification details with CORRECT channel ID
       const AndroidNotificationDetails androidDetails =
           AndroidNotificationDetails(
-        'savora_channel', // Channel ID
-        'Savora Notifications', // Channel Name
+        'savora_channel', // ✅ MUST match channel ID created above
+        'Savora Notifications',
         channelDescription: 'Notifikasi dari aplikasi Savora',
         importance: Importance.high,
         priority: Priority.high,
@@ -115,6 +144,8 @@ class NotificationService {
         playSound: true,
         icon: '@mipmap/ic_launcher',
         color: Color(0xFFD4AF37), // Golden color
+        styleInformation: BigTextStyleInformation(''), // For expanded view
+        ticker: 'Savora Notification', // Shows in status bar
       );
 
       const NotificationDetails notificationDetails = NotificationDetails(
@@ -181,7 +212,6 @@ class NotificationService {
   String? _generatePayload(String? type, String? entityId) {
     if (type == null || entityId == null) return null;
 
-    // Map notification type to navigation payload
     if ([
       'new_recipe_from_following',
       'recipe_approved',

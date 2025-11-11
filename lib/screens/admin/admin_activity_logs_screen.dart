@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../utils/supabase_client.dart';
 import 'package:intl/intl.dart';
 
+// Mendefinisikan layar halaman Log Aktivitas Admin sebagai StatefulWidget
 class AdminActivityLogsScreen extends StatefulWidget {
   const AdminActivityLogsScreen({super.key});
 
@@ -9,61 +10,86 @@ class AdminActivityLogsScreen extends StatefulWidget {
   State<AdminActivityLogsScreen> createState() => _AdminActivityLogsScreenState();
 }
 
+// State class untuk mengelola data dan logika halaman ini
 class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
+  // Menyimpan semua log aktivitas yang diambil dari database
   List<Map<String, dynamic>> _logs = [];
+  // Menyimpan log yang telah difilter berdasarkan tindakan (action)
   List<Map<String, dynamic>> _filteredLogs = [];
+  // Menandai apakah sedang dalam proses memuat data
   bool _isLoading = true;
+  // Menyimpan jenis filter action yang sedang dipilih oleh pengguna
   String _filterAction = 'all';
+  // Controller untuk mengelola scrolling pada daftar log
   final ScrollController _scrollController = ScrollController();
+  // Menyimpan halaman saat ini untuk pagination
   int _currentPage = 0;
+  // Jumlah item yang dimuat per halaman
   final int _pageSize = 20;
+  // Menandai apakah masih ada data tambahan untuk dimuat
   bool _hasMore = true;
 
   @override
   void initState() {
     super.initState();
+    // Memuat log pertama kali saat widget dibuat
     _loadLogs();
+    // Menambahkan listener untuk mendeteksi scroll dan memuat lebih banyak data
     _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    // Membersihkan listener scroll dan resource saat widget dihancurkan
     _scrollController.dispose();
     super.dispose();
   }
 
+  // Fungsi yang dipanggil saat pengguna melakukan scroll
   void _onScroll() {
+    // Memeriksa apakah pengguna sudah mencapai akhir daftar (90% ke bawah)
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.9) {
+      // Jika tidak sedang memuat dan masih ada data, maka muat data tambahan
       if (!_isLoading && _hasMore) {
         _loadMoreLogs();
       }
     }
   }
 
+  // Fungsi untuk memuat ulang semua log dari awal
   Future<void> _loadLogs() async {
+    // Menandai sedang loading dan reset halaman ke 0
     setState(() {
       _isLoading = true;
       _currentPage = 0;
     });
 
     try {
+      // Mengambil data dari tabel 'activity_logs' di Supabase
+      // Mengambil juga username dari tabel 'profiles' melalui relasi user_id
       final response = await supabase
           .from('activity_logs')
           .select('*, profiles:user_id(username)')
           .order('created_at', ascending: false)
           .range(_currentPage * _pageSize, (_currentPage + 1) * _pageSize - 1);
 
+      // Memastikan widget masih terpasang sebelum mengubah state
       if (mounted) {
         setState(() {
+          // Mengonversi respons menjadi daftar log
           _logs = List<Map<String, dynamic>>.from(response);
+          // Menentukan apakah masih ada data berikutnya berdasarkan ukuran respons
           _hasMore = response.length == _pageSize;
+          // Menerapkan filter berdasarkan action yang dipilih
           _applyFilters();
           _isLoading = false;
         });
       }
     } catch (e) {
+      // Menangani error saat memuat data
       if (mounted) {
         setState(() => _isLoading = false);
+        // Menampilkan pesan error menggunakan SnackBar
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Gagal memuat log: $e')),
         );
@@ -71,10 +97,14 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
     }
   }
 
+  // Fungsi untuk memuat log tambahan saat scroll ke bawah
   Future<void> _loadMoreLogs() async {
+    // Menambah halaman saat ini
     setState(() => _currentPage++);
 
     try {
+      // Mengambil data log untuk halaman berikutnya
+      // Menggunakan relasi inner join untuk memastikan hanya log dengan profil yang valid
       final response = await supabase
           .from('activity_logs')
           .select('*, profiles!inner(username)')
@@ -83,28 +113,36 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
 
       if (mounted) {
         setState(() {
+          // Menambahkan log baru ke daftar yang sudah ada
           _logs.addAll(List<Map<String, dynamic>>.from(response));
+          // Memperbarui status apakah masih ada data
           _hasMore = response.length == _pageSize;
+          // Menerapkan ulang filter
           _applyFilters();
         });
       }
     } catch (e) {
+      // Jika gagal, kembalikan nomor halaman sebelumnya
       if (mounted) {
         setState(() => _currentPage--);
       }
     }
   }
 
+  // Fungsi untuk memfilter log berdasarkan tindakan yang dipilih
   void _applyFilters() {
     setState(() {
       if (_filterAction == 'all') {
+        // Jika filter 'all', tampilkan semua log
         _filteredLogs = _logs;
       } else {
+        // Jika tidak, hanya tampilkan log dengan action yang sesuai
         _filteredLogs = _logs.where((log) => log['action'] == _filterAction).toList();
       }
     });
   }
 
+  // Fungsi untuk mengonversi kode action menjadi teks yang mudah dibaca
   String _getActionDisplay(String action) {
     switch (action) {
       case 'ban_user':
@@ -118,10 +156,12 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
       case 'delete_comment':
         return 'Hapus Komentar';
       default:
+        // Untuk action lain, ubah underscore jadi spasi dan huruf besar
         return action.replaceAll('_', ' ').toUpperCase();
     }
   }
 
+  // Fungsi untuk mendapatkan ikon sesuai dengan jenis action
   IconData _getActionIcon(String action) {
     switch (action) {
       case 'ban_user':
@@ -139,6 +179,7 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
     }
   }
 
+  // Fungsi untuk mendapatkan warna ikon dan border sesuai jenis action
   Color _getActionColor(String action) {
     switch (action) {
       case 'ban_user':
@@ -154,6 +195,7 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
     }
   }
 
+  // Fungsi untuk memformat waktu menjadi format waktu relatif atau tanggal lengkap
   String _formatDateTime(String? dateTimeStr) {
     if (dateTimeStr == null) return 'Unknown';
     try {
@@ -161,6 +203,7 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
       final now = DateTime.now();
       final difference = now.difference(dateTime);
 
+      // Menampilkan waktu relatif berdasarkan selisih waktu
       if (difference.inMinutes < 1) {
         return 'Baru saja';
       } else if (difference.inMinutes < 60) {
@@ -170,9 +213,11 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
       } else if (difference.inDays < 7) {
         return '${difference.inDays} hari lalu';
       } else {
+        // Jika lebih dari seminggu, tampilkan tanggal lengkap
         return DateFormat('dd MMM yyyy, HH:mm').format(dateTime);
       }
     } catch (e) {
+      // Jika format tanggal gagal, kembalikan string asli
       return dateTimeStr;
     }
   }
@@ -180,9 +225,10 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Warna latar belakang halaman
       backgroundColor: const Color(0xFFF8F4F0),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFD4AF37),
+        backgroundColor: const Color(0xFFD4AF37), // Warna emas
         title: const Text(
           'Log Aktivitas',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -195,7 +241,7 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
       ),
       body: Column(
         children: [
-          // Filter Chips
+          // Panel filter berupa chip horizontal
           Container(
             color: Colors.white,
             padding: const EdgeInsets.all(16),
@@ -217,12 +263,12 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
             ),
           ),
 
-          // Activity Logs List
+          // Daftar log aktivitas
           Expanded(
             child: _isLoading && _logs.isEmpty
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator()) // Tampilkan loading jika sedang memuat
                 : _filteredLogs.isEmpty
-                    ? Center(
+                    ? Center( // Tampilkan pesan jika tidak ada data
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -242,7 +288,7 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
                           ],
                         ),
                       )
-                    : RefreshIndicator(
+                    : RefreshIndicator( // Tambahkan gesture pull-to-refresh
                         onRefresh: _loadLogs,
                         color: const Color(0xFFD4AF37),
                         child: ListView.builder(
@@ -251,6 +297,7 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
                           itemCount: _filteredLogs.length + (_hasMore ? 1 : 0),
                           itemBuilder: (context, index) {
                             if (index == _filteredLogs.length) {
+                              // Tampilkan loading di akhir daftar jika masih ada data
                               return const Center(
                                 child: Padding(
                                   padding: EdgeInsets.all(16),
@@ -269,12 +316,13 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
     );
   }
 
+  // Membangun widget chip filter
   Widget _buildFilterChip(String label, String value) {
     final isSelected = _filterAction == value;
     return GestureDetector(
       onTap: () {
         setState(() => _filterAction = value);
-        _applyFilters();
+        _applyFilters(); // Terapkan filter saat chip diklik
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -294,6 +342,7 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
     );
   }
 
+  // Membangun kartu log aktivitas
   Widget _buildLogCard(Map<String, dynamic> log) {
     final action = log['action'] ?? 'unknown';
     final username = log['profiles']?['username'] ?? 'Unknown User';
@@ -325,6 +374,7 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Ikon tindakan dengan background warna
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
@@ -342,6 +392,7 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Judul tindakan
                   Text(
                     _getActionDisplay(action),
                     style: const TextStyle(
@@ -351,6 +402,7 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
+                  // Nama pengguna yang melakukan tindakan
                   Row(
                     children: [
                       Icon(
@@ -369,6 +421,7 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
                       ),
                     ],
                   ),
+                  // Menampilkan detail aktivitas jika tersedia
                   if (details != null && details.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Container(
@@ -406,6 +459,7 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
                     ),
                   ],
                   const SizedBox(height: 8),
+                  // Waktu kejadian
                   Row(
                     children: [
                       Icon(
@@ -432,6 +486,7 @@ class _AdminActivityLogsScreenState extends State<AdminActivityLogsScreen> {
     );
   }
 
+  // Membangun baris detail dalam kartu log
   Widget _buildDetailRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),

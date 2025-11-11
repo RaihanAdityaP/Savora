@@ -3,7 +3,7 @@ import '../utils/supabase_client.dart';
 import '../widgets/custom_bottom_nav.dart';
 import 'home_screen.dart';
 import 'edit_recipe_screen.dart';
-import 'user_profile_screen.dart';
+import 'profile_screen.dart';
 
 /// DetailScreen menampilkan informasi lengkap resep berdasarkan ID.
 /// Termasuk rating, komentar, dan aksi seperti favorite, edit, atau hapus.
@@ -636,11 +636,11 @@ class _DetailScreenState extends State<DetailScreen> {
       onTap: canNavigate
           ? () {
               Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => UserProfileScreen(userId: userId.toString()),
-                ),
-              );
+              context,
+              MaterialPageRoute(
+                builder: (context) => ProfileScreen(userId: userId.toString()),
+              ),
+            );
             }
           : null,
       child: Container(
@@ -1103,11 +1103,11 @@ class _DetailScreenState extends State<DetailScreen> {
                   GestureDetector(
                     onTap: () {
                       Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => UserProfileScreen(userId: userId),
-                        ),
-                      );
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProfileScreen(userId: userId),
+                      ),
+                    );
                     },
                     child: Row(
                       children: [
