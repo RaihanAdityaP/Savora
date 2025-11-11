@@ -4,6 +4,7 @@ import 'admin_users_screen.dart';
 import 'admin_activity_logs_screen.dart';
 import 'admin_recipes_screen.dart';
 
+// Mendefinisikan layar dashboard admin sebagai StatefulWidget
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
 
@@ -11,16 +12,21 @@ class AdminDashboardScreen extends StatefulWidget {
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
 }
 
+// State class untuk mengelola data dan tampilan dashboard admin
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+  // Menandai apakah sedang dalam proses memuat data
   bool _isLoading = true;
+  // Menyimpan data statistik yang diambil dari database
   Map<String, dynamic> _stats = {};
 
   @override
   void initState() {
     super.initState();
+    // Memuat statistik saat widget pertama kali dibuat
     _loadStatistics();
   }
 
+  // Fungsi untuk mengambil data statistik dari tabel 'admin_statistics' di Supabase
   Future<void> _loadStatistics() async {
     try {
       final response = await supabase
@@ -28,6 +34,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           .select()
           .single();
 
+      // Memastikan widget masih terpasang sebelum memperbarui state
       if (mounted) {
         setState(() {
           _stats = response;
@@ -35,6 +42,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         });
       }
     } catch (e) {
+      // Jika terjadi error, hentikan loading dan tampilkan pesan error
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -47,6 +55,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Warna latar belakang halaman
       backgroundColor: const Color(0xFFF8F4F0),
       appBar: AppBar(
         backgroundColor: const Color(0xFFD4AF37),
@@ -64,6 +73,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
+      // Menampilkan indikator loading jika sedang memuat, atau konten jika sudah selesai
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -74,7 +84,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header Banner
+                    // Banner header di bagian atas
                     Container(
                       width: double.infinity,
                       decoration: const BoxDecoration(
@@ -90,6 +100,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           padding: const EdgeInsets.all(20),
                           child: Row(
                             children: [
+                              // Ikon admin
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
@@ -103,6 +114,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 ),
                               ),
                               const SizedBox(width: 16),
+                              // Pesan selamat datang
                               const Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,7 +149,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Statistics Title
+                          // Judul untuk bagian statistik
                           const Text(
                             'Statistik Platform',
                             style: TextStyle(
@@ -148,14 +160,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                           const SizedBox(height: 12),
 
-                          // Statistics Grid (Compact) - FIXED: Reduced childAspectRatio
+                          // Grid statistik dengan 3 kolom per baris
                           GridView.count(
                             crossAxisCount: 3,
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
                             crossAxisSpacing: 8,
                             mainAxisSpacing: 8,
-                            childAspectRatio: 0.95, // ✅ Changed from 1.1 to 0.95
+                            childAspectRatio: 0.95,
                             children: [
                               _buildCompactStatCard(
                                 'Users',
@@ -197,7 +209,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                           const SizedBox(height: 24),
 
-                          // Menu Management Title
+                          // Judul untuk bagian menu manajemen
                           const Text(
                             'Menu Manajemen',
                             style: TextStyle(
@@ -208,7 +220,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                           const SizedBox(height: 12),
 
-                          // Management Menu Cards
+                          // Kartu navigasi ke halaman pengelolaan pengguna
                           _buildMenuCard(
                             'Kelola Pengguna',
                             '${_stats['total_users'] ?? 0} pengguna terdaftar',
@@ -225,6 +237,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                           const SizedBox(height: 10),
 
+                          // Kartu navigasi ke halaman moderasi resep
                           _buildMenuCard(
                             'Moderasi Resep',
                             '${_stats['pending_recipes'] ?? 0} resep menunggu',
@@ -241,6 +254,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                           const SizedBox(height: 10),
 
+                          // Kartu navigasi ke halaman log aktivitas
                           _buildMenuCard(
                             'Log Aktivitas',
                             'Monitor semua aktivitas',
@@ -265,9 +279,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  // Membangun kartu statistik kecil (compact) untuk ditampilkan dalam grid
   Widget _buildCompactStatCard(String title, String value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(8), // ✅ Reduced from 10 to 8
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
@@ -282,8 +297,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // Ikon dengan background warna transparan
           Container(
-            padding: const EdgeInsets.all(6), // ✅ Reduced from 8 to 6
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
@@ -291,24 +307,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             child: Icon(
               icon,
               color: color,
-              size: 18, // ✅ Reduced from 20 to 18
+              size: 18,
             ),
           ),
-          const SizedBox(height: 6), // ✅ Reduced from 8 to 6
+          const SizedBox(height: 6),
+          // Nilai statistik
           Text(
             value,
             style: TextStyle(
               color: color,
-              fontSize: 18, // ✅ Reduced from 20 to 18
+              fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 2),
+          // Label deskriptif
           Text(
             title,
             style: TextStyle(
               color: Colors.grey.shade600,
-              fontSize: 10, // ✅ Reduced from 11 to 10
+              fontSize: 10,
               fontWeight: FontWeight.w500,
             ),
             textAlign: TextAlign.center,
@@ -320,6 +338,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  // Membangun kartu menu navigasi dengan efek tap
   Widget _buildMenuCard(
     String title,
     String subtitle,
@@ -348,6 +367,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             padding: const EdgeInsets.all(14),
             child: Row(
               children: [
+                // Ikon dengan background berwarna
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
@@ -361,6 +381,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                 ),
                 const SizedBox(width: 14),
+                // Judul dan subjudul
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -384,6 +405,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ],
                   ),
                 ),
+                // Ikon panah ke kanan
                 Icon(
                   Icons.arrow_forward_ios,
                   color: Colors.grey.shade400,

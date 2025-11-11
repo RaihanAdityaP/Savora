@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/supabase_client.dart';
-import 'user_profile_screen.dart';
+import 'profile_screen.dart';
 import 'detail_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
@@ -185,7 +185,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => UserProfileScreen(userId: relatedId),
+            builder: (context) => ProfileScreen(userId: relatedId),
           ),
         );
         break;

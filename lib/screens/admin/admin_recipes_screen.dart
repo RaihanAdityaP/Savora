@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../utils/supabase_client.dart';
 
+// Mendefinisikan layar moderasi resep sebagai StatefulWidget
 class AdminRecipesScreen extends StatefulWidget {
   const AdminRecipesScreen({super.key});
 
@@ -8,17 +9,23 @@ class AdminRecipesScreen extends StatefulWidget {
   State<AdminRecipesScreen> createState() => _AdminRecipesScreenState();
 }
 
+// State class untuk mengelola data dan interaksi pada layar moderasi resep
 class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
+  // Menyimpan daftar resep yang diambil dari database
   List<Map<String, dynamic>> _recipes = [];
+  // Menandai apakah sedang dalam proses memuat data
   bool _isLoading = true;
+  // Menyimpan status filter resep (pending, approved, rejected)
   String _filterStatus = 'pending';
 
   @override
   void initState() {
     super.initState();
+    // Memuat resep saat widget pertama kali dibuat
     _loadRecipes();
   }
 
+  // Fungsi untuk mengambil daftar resep dari Supabase berdasarkan status yang dipilih
   Future<void> _loadRecipes() async {
     setState(() => _isLoading = true);
     try {
@@ -32,6 +39,7 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
           .eq('status', _filterStatus)
           .order('created_at', ascending: false);
 
+      // Memastikan widget masih terpasang sebelum memperbarui state
       if (mounted) {
         setState(() {
           _recipes = List<Map<String, dynamic>>.from(response);
@@ -39,6 +47,7 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
         });
       }
     } catch (e) {
+      // Menangani error saat memuat data
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -48,9 +57,11 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
     }
   }
 
+  // Fungsi untuk memperbarui status resep (approve atau reject)
   Future<void> _moderateRecipe(String recipeId, String status) async {
     try {
       final now = DateTime.now().toIso8601String();
+      // Memperbarui data resep di database dengan status baru dan info moderator
       await supabase.from('recipes').update({
         'status': status,
         'moderated_by': supabase.auth.currentUser?.id,
@@ -58,15 +69,18 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
       }).eq('id', recipeId);
 
       if (mounted) {
+        // Menampilkan notifikasi sukses
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(status == 'approved' ? 'Resep disetujui' : 'Resep ditolak'),
             backgroundColor: status == 'approved' ? Colors.green : Colors.red,
           ),
         );
+        // Memuat ulang daftar resep
         _loadRecipes();
       }
     } catch (e) {
+      // Menangani error saat memperbarui status
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
@@ -78,6 +92,7 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Warna latar belakang halaman
       backgroundColor: const Color(0xFFF8F4F0),
       appBar: AppBar(
         backgroundColor: const Color(0xFFD4AF37),
@@ -93,6 +108,7 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
       ),
       body: Column(
         children: [
+          // Panel filter status resep (Pending, Approved, Rejected)
           Container(
             color: Colors.white,
             padding: const EdgeInsets.all(16),
@@ -121,6 +137,7 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
               ],
             ),
           ),
+          // Daftar resep
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -156,6 +173,7 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
     );
   }
 
+  // Membangun tombol filter status dengan tampilan chip
   Widget _buildFilterChip(String label, bool isSelected, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
@@ -178,6 +196,7 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
     );
   }
 
+  // Membangun kartu resep dengan gambar, informasi, dan tombol aksi (jika pending)
   Widget _buildRecipeCard(Map<String, dynamic> recipe) {
     final profile = recipe['profiles'];
     final username = profile?['username'] ?? 'Unknown';
@@ -208,7 +227,7 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Image with Badges
+          // Gambar resep dengan overlay dan badge kategori & tingkat kesulitan
           if (recipe['image_url'] != null)
             Stack(
               children: [
@@ -226,7 +245,7 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
                     ),
                   ),
                 ),
-                // Gradient Overlay
+                // Overlay gradien gelap di bagian bawah gambar
                 Positioned(
                   left: 0,
                   right: 0,
@@ -245,7 +264,7 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
                     ),
                   ),
                 ),
-                // Category Badge
+                // Badge kategori di kiri bawah
                 Positioned(
                   left: 12,
                   bottom: 12,
@@ -272,7 +291,7 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
                     ),
                   ),
                 ),
-                // Difficulty Badge
+                // Badge tingkat kesulitan di kanan bawah
                 Positioned(
                   right: 12,
                   bottom: 12,
@@ -302,13 +321,13 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
               ],
             ),
           
-          // Content
+          // Konten informasi resep di bawah gambar
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Title
+                // Judul resep
                 Text(
                   recipe['title'] ?? 'Untitled',
                   style: const TextStyle(
@@ -319,7 +338,7 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
                 ),
                 const SizedBox(height: 8),
                 
-                // Description
+                // Deskripsi resep (jika tersedia)
                 if (recipe['description'] != null && recipe['description'].toString().isNotEmpty)
                   Text(
                     recipe['description'],
@@ -330,10 +349,10 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
                 
                 const SizedBox(height: 12),
                 
-                // Author and Stats Row
+                // Informasi penulis dan waktu memasak
                 Row(
                   children: [
-                    // Author
+                    // Avatar penulis
                     Container(
                       width: 24,
                       height: 24,
@@ -357,6 +376,7 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
+                    // Nama penulis
                     Text(
                       username,
                       style: TextStyle(
@@ -366,6 +386,7 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
                       ),
                     ),
                     const Spacer(),
+                    // Ikon dan waktu memasak
                     Icon(Icons.access_time, size: 16, color: Colors.grey.shade600),
                     const SizedBox(width: 4),
                     Text(
@@ -375,11 +396,12 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
                   ],
                 ),
                 
-                // Action Buttons for Pending
+                // Tombol aksi (Setujui/Tolak) hanya muncul untuk resep dengan status 'pending'
                 if (_filterStatus == 'pending') ...[
                   const SizedBox(height: 16),
                   Row(
                     children: [
+                      // Tombol Tolak
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () => _moderateRecipe(recipe['id'], 'rejected'),
@@ -395,6 +417,7 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
+                      // Tombol Setujui
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: () => _moderateRecipe(recipe['id'], 'approved'),
@@ -420,6 +443,7 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
     );
   }
 
+  // Mengembalikan warna berdasarkan tingkat kesulitan resep
   Color _getDifficultyColor(String difficulty) {
     switch (difficulty.toLowerCase()) {
       case 'mudah':
@@ -433,6 +457,7 @@ class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
     }
   }
 
+  // Mengembalikan label yang lebih rapi berdasarkan tingkat kesulitan
   String _getDifficultyLabel(String difficulty) {
     switch (difficulty.toLowerCase()) {
       case 'mudah':

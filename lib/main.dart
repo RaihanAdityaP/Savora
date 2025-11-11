@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/detail_screen.dart';
-import 'screens/user_profile_screen.dart';
+import 'screens/profile_screen.dart';
 import 'utils/supabase_client.dart';
 import 'services/notification_service.dart';
 
@@ -99,7 +99,7 @@ class _MyAppState extends State<MyApp> {
           final userId = settings.arguments as String?;
           if (userId != null) {
             return MaterialPageRoute(
-              builder: (context) => UserProfileScreen(userId: userId),
+              builder: (context) => ProfileScreen(userId: userId),
             );
           }
         }

@@ -53,6 +53,7 @@ class CustomBottomNav extends StatelessWidget {
             );
             break;
           case 4:
+            // Navigate ke ProfileScreen tanpa userId (profil sendiri)
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => const ProfileScreen()),

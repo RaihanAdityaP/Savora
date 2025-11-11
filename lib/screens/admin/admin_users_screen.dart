@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../utils/supabase_client.dart';
 
+// Mendefinisikan layar pengelolaan pengguna sebagai StatefulWidget
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({super.key});
 
@@ -8,22 +9,31 @@ class AdminUsersScreen extends StatefulWidget {
   State<AdminUsersScreen> createState() => _AdminUsersScreenState();
 }
 
+// State class untuk mengelola data dan interaksi pada layar pengelolaan pengguna
 class _AdminUsersScreenState extends State<AdminUsersScreen> {
+  // Menyimpan semua data pengguna dari database
   List<Map<String, dynamic>> _users = [];
+  // Menyimpan daftar pengguna yang telah difilter berdasarkan pencarian dan status
   List<Map<String, dynamic>> _filteredUsers = [];
+  // Menandai apakah sedang dalam proses memuat data
   bool _isLoading = true;
+  // Menyimpan teks yang dimasukkan pengguna untuk pencarian
   String _searchQuery = '';
+  // Menyimpan status filter yang dipilih (semua, aktif, atau banned)
   String _filterStatus = 'all';
 
   @override
   void initState() {
     super.initState();
+    // Memuat daftar pengguna saat widget pertama kali dibuat
     _loadUsers();
   }
 
+  // Fungsi untuk mengambil data pengguna dari Supabase dan informasi admin yang melakukan ban
   Future<void> _loadUsers() async {
     setState(() => _isLoading = true);
     try {
+      // Mengambil data dasar pengguna dari tabel 'profiles'
       final response = await supabase
           .from('profiles')
           .select('''
@@ -32,7 +42,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           ''')
           .order('created_at', ascending: false);
 
-      // Fetch banned_by admin username separately for each banned user
+      // Mengambil username admin yang melakukan ban untuk setiap pengguna yang dibanned
       final List<Map<String, dynamic>> usersWithAdminInfo = [];
       for (var user in response) {
         final userData = Map<String, dynamic>.from(user);
@@ -54,6 +64,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         usersWithAdminInfo.add(userData);
       }
 
+      // Memastikan widget masih terpasang sebelum memperbarui state
       if (mounted) {
         setState(() {
           _users = usersWithAdminInfo;
@@ -62,6 +73,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         });
       }
     } catch (e) {
+      // Menangani error saat memuat data
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -71,13 +83,17 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     }
   }
 
+  // Fungsi untuk menerapkan filter berdasarkan pencarian dan status pengguna
   void _applyFilters() {
     setState(() {
       _filteredUsers = _users.where((user) {
+        // Cek apakah pengguna cocok dengan kata kunci pencarian
         final matchesSearch = _searchQuery.isEmpty ||
             (user['username']?.toLowerCase() ?? '').contains(_searchQuery.toLowerCase()) ||
             (user['full_name']?.toLowerCase() ?? '').contains(_searchQuery.toLowerCase());
+        // Cek status banned
         final isBanned = user['is_banned'] == true;
+        // Cek apakah status pengguna sesuai dengan filter yang dipilih
         final matchesStatus = _filterStatus == 'all' ||
             (_filterStatus == 'banned' && isBanned) ||
             (_filterStatus == 'active' && !isBanned);
@@ -86,6 +102,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     });
   }
 
+  // Fungsi untuk menangani toggle ban/unban
   Future<void> _toggleBanUser(Map<String, dynamic> user) async {
     final isBanned = user['is_banned'] == true;
     if (isBanned) {
@@ -95,6 +112,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     }
   }
 
+  // Menampilkan dialog untuk memilih alasan ban sebelum melakukan banned
   Future<void> _showBanDialog(Map<String, dynamic> user) async {
     final reasonController = TextEditingController();
     String selectedReason = 'spam';
@@ -193,6 +211,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     }
   }
 
+  // Mengonversi kode alasan ban menjadi teks yang mudah dibaca
   String _getReasonText(String reason) {
     switch (reason) {
       case 'spam':
@@ -210,10 +229,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     }
   }
 
+  // Fungsi untuk melakukan banned pengguna
   Future<void> _banUser(Map<String, dynamic> user, String reason) async {
     try {
       final adminId = supabase.auth.currentUser?.id;
       final now = DateTime.now().toIso8601String();
+      // Memperbarui data profil pengguna
       await supabase.from('profiles').update({
         'is_banned': true,
         'banned_at': now,
@@ -221,6 +242,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         'banned_by': adminId,
       }).eq('id', user['id']);
 
+      // Mencatat aktivitas ke log aktivitas admin
       await supabase.rpc('log_ban_activity', params: {
         'p_user_id': adminId,
         'p_target_user_id': user['id'],
@@ -229,6 +251,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         'p_is_ban': true,
       });
 
+      // Membuat notifikasi untuk pengguna yang dibanned
       await supabase.rpc('create_notification', params: {
         'p_user_id': user['id'],
         'p_title': 'Akun Dinonaktifkan',
@@ -254,6 +277,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     }
   }
 
+  // Fungsi untuk mengaktifkan kembali pengguna yang dibanned
   Future<void> _unbanUser(Map<String, dynamic> user) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -281,6 +305,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     if (confirm == true) {
       try {
         final adminId = supabase.auth.currentUser?.id;
+        // Menghapus data banned dari profil pengguna
         await supabase.from('profiles').update({
           'is_banned': false,
           'banned_at': null,
@@ -288,6 +313,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           'banned_by': null,
         }).eq('id', user['id']);
 
+        // Mencatat aktivitas unban
         await supabase.rpc('log_ban_activity', params: {
           'p_user_id': adminId,
           'p_target_user_id': user['id'],
@@ -295,6 +321,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           'p_is_ban': false,
         });
 
+        // Mengirim notifikasi ke pengguna
         await supabase.rpc('create_notification', params: {
           'p_user_id': user['id'],
           'p_title': 'Akun Diaktifkan Kembali',
@@ -321,6 +348,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     }
   }
 
+  // Menampilkan detail alasan banned kepada admin
   void _showBanDetails(Map<String, dynamic> user) {
     final reason = user['banned_reason'] ?? 'Tidak disebutkan';
     final bannedAt = user['banned_at'];
@@ -388,6 +416,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     );
   }
 
+  // Memformat waktu banned menjadi format waktu relatif
   String _formatDateTime(String dateTimeStr) {
     try {
       final dateTime = DateTime.parse(dateTimeStr);
@@ -405,6 +434,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     }
   }
 
+  // Fungsi untuk mengaktifkan/menonaktifkan status premium pengguna
   Future<void> _togglePremium(Map<String, dynamic> user) async {
     final isPremium = user['is_premium'] == true;
     try {
@@ -434,6 +464,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Warna latar belakang halaman
       backgroundColor: const Color(0xFFF8F4F0),
       appBar: AppBar(
         backgroundColor: const Color(0xFFD4AF37),
@@ -449,6 +480,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       ),
       body: Column(
         children: [
+          // Kolom pencarian pengguna
           Container(
             color: Colors.white,
             padding: const EdgeInsets.all(16),
@@ -469,6 +501,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               ),
             ),
           ),
+          // Panel filter status (Semua, Aktif, Banned)
           Container(
             color: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -482,6 +515,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               ],
             ),
           ),
+          // Daftar pengguna
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -514,6 +548,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     );
   }
 
+  // Membangun chip filter status
   Widget _buildFilterChip(String label, String value) {
     final isSelected = _filterStatus == value;
     return GestureDetector(
@@ -540,6 +575,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     );
   }
 
+  // Membangun kartu pengguna dengan avatar, info, status, dan tombol aksi
   Widget _buildUserCard(Map<String, dynamic> user) {
     final isBanned = user['is_banned'] == true;
     final isAdmin = user['role'] == 'admin';
@@ -576,6 +612,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           children: [
             Row(
               children: [
+                // Avatar pengguna dengan warna berbeda berdasarkan status
                 CircleAvatar(
                   radius: 24,
                   backgroundColor: isAdmin
@@ -613,6 +650,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          // Badge ADMIN jika pengguna adalah admin
                           if (isAdmin) ...[
                             const SizedBox(width: 6),
                             Container(
@@ -631,12 +669,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                               ),
                             ),
                           ],
+                          // Ikon premium jika pengguna berstatus premium
                           if (isPremium) ...[
                             const SizedBox(width: 6),
                             const Icon(Icons.workspace_premium, color: Color(0xFFE5BFA5), size: 16),
                           ],
                         ],
                       ),
+                      // Nama lengkap jika tersedia
                       if (fullName.isNotEmpty) ...[
                         const SizedBox(height: 2),
                         Text(
@@ -648,6 +688,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                     ],
                   ),
                 ),
+                // Label dan ikon info untuk pengguna yang dibanned
                 if (isBanned)
                   InkWell(
                     onTap: () => _showBanDetails(user),
@@ -678,6 +719,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                   ),
               ],
             ),
+            // Menampilkan alasan banned secara eksplisit bila tersedia
             if (isBanned && user['banned_reason'] != null) ...[
               const SizedBox(height: 12),
               InkWell(
@@ -707,6 +749,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               ),
             ],
             const SizedBox(height: 12),
+            // Tombol aksi: Ban/Aktifkan dan Upgrade Premium
             Row(
               children: [
                 Expanded(
