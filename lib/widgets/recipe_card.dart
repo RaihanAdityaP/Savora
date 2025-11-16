@@ -3,13 +3,6 @@ import '../screens/detail_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/searching_screen.dart';
 
-/// Widget kartu resep yang dipercantik dengan layout yang lebih menarik
-/// Layout struktur:
-/// 1. Nama resep di paling atas
-/// 2. Gambar dengan rating badge
-/// 3. Info user (avatar + username + role) - bisa diklik ke profile
-/// 4. Deskripsi resep
-/// 5. Category dan Tags yang bisa diklik untuk searching
 class RecipeCard extends StatelessWidget {
   final Map<String, dynamic> recipe;
   final double? rating;
@@ -24,24 +17,21 @@ class RecipeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Ekstrak data dari recipe
     final profile = recipe['profiles'];
     final username = profile?['username'] ?? 'Anonymous';
     final avatarUrl = profile?['avatar_url'];
-    final userId = recipe['user_id']; // ID user untuk navigasi ke profile
-    final userRole = profile?['role'] ?? 'user'; // Role user (admin/premium/user)
-    
+    final userId = recipe['user_id'];
+    final userRole = profile?['role'] ?? 'user';
+
     final category = recipe['categories'];
     final categoryName = category?['name'] ?? 'Uncategorized';
     final categoryId = category?['id'];
-    
-    // Ambil tags dari recipe_tags (relasi many-to-many)
+
     final recipeTags = recipe['recipe_tags'] as List<dynamic>?;
     final tags = recipeTags?.map((rt) => rt['tags']).where((t) => t != null).toList() ?? [];
 
     return GestureDetector(
       onTap: onTap ?? () {
-        // Tap selain pada user info akan ke detail screen
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -68,7 +58,7 @@ class RecipeCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 1. NAMA RESEP (Header)
+            // 1. Judul Resep (Header)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
@@ -93,12 +83,10 @@ class RecipeCard extends StatelessWidget {
               ),
             ),
 
-            // 2. GAMBAR + RATING BADGE
+            // 2. Gambar + Rating Badge
             Expanded(
-              flex: 5,
               child: Stack(
                 children: [
-                  // Gambar resep
                   Container(
                     width: double.infinity,
                     color: Colors.grey.shade100,
@@ -116,8 +104,6 @@ class RecipeCard extends StatelessWidget {
                             child: Icon(Icons.restaurant, size: 40, color: Colors.grey.shade400),
                           ),
                   ),
-
-                  // Gradient overlay untuk readability
                   Positioned(
                     left: 0,
                     right: 0,
@@ -136,8 +122,6 @@ class RecipeCard extends StatelessWidget {
                       ),
                     ),
                   ),
-
-                  // Rating badge (top right)
                   if (rating != null)
                     Positioned(
                       top: 8,
@@ -178,237 +162,230 @@ class RecipeCard extends StatelessWidget {
               ),
             ),
 
-            // INFO SECTION
-            Expanded(
-              flex: 6,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // 3. USER INFO (Avatar + Username + Role) - CLICKABLE
-                    GestureDetector(
-                      onTap: () {
-                        // Navigasi ke profile screen
-                        if (userId != null) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ProfileScreen(userId: userId),
-                            ),
-                          );
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            // Avatar
-                            Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.grey.shade300,
-                                border: Border.all(
-                                  color: _getRoleBorderColor(userRole),
-                                  width: 2,
-                                ),
+            // 3. Info Section - SEMUA KONTEN DI DALAM CONTAINER INI
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // User Info
+                  GestureDetector(
+                    onTap: userId != null
+                        ? () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ProfileScreen(userId: userId),
                               ),
-                              child: ClipOval(
-                                child: avatarUrl != null
-                                    ? Image.network(
-                                        avatarUrl,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) => Icon(
-                                          Icons.person,
-                                          size: 12,
-                                          color: Colors.grey.shade600,
-                                        ),
-                                      )
-                                    : Icon(Icons.person, size: 12, color: Colors.grey.shade600),
+                            );
+                          }
+                        : null,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.grey.shade300,
+                              border: Border.all(
+                                color: _getRoleBorderColor(userRole),
+                                width: 2,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            // Username + role badge
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    username,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.grey.shade800,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (userRole != 'user')
-                                    Text(
-                                      _getRoleLabel(userRole),
-                                      style: TextStyle(
-                                        fontSize: 9,
-                                        color: _getRoleBorderColor(userRole),
-                                        fontWeight: FontWeight.bold,
+                            child: ClipOval(
+                              child: avatarUrl != null
+                                  ? Image.network(
+                                      avatarUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) => Icon(
+                                        Icons.person,
+                                        size: 12,
+                                        color: Colors.grey.shade600,
                                       ),
-                                    ),
-                                ],
-                              ),
+                                    )
+                                  : Icon(Icons.person, size: 12, color: Colors.grey.shade600),
                             ),
-                            Icon(Icons.arrow_forward_ios, size: 10, color: Colors.grey.shade400),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  username,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade800,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (userRole != 'user')
+                                  Text(
+                                    _getRoleLabel(userRole),
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      color: _getRoleBorderColor(userRole),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.arrow_forward_ios, size: 10, color: Colors.grey.shade400),
+                        ],
                       ),
                     ),
+                  ),
 
-                    const SizedBox(height: 8),
+                  const SizedBox(height: 8),
 
-                    // 4. DESKRIPSI RESEP
-                    if (recipe['description'] != null && recipe['description'].toString().isNotEmpty) ...[
-                      Text(
-                        recipe['description'],
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade600,
-                          height: 1.4,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                  // Description
+                  if (recipe['description'] != null && recipe['description'].toString().isNotEmpty) ...[
+                    Text(
+                      recipe['description'],
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                        height: 1.4,
                       ),
-                      const SizedBox(height: 8),
-                    ],
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                  ],
 
-                    // 5. CATEGORY + TAGS (CLICKABLE)
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        // Category chip
-                        GestureDetector(
-                          onTap: categoryId != null
+                  // Category & Tags
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      GestureDetector(
+                        onTap: categoryId != null
+                            ? () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => SearchingScreen(
+                                      initialCategoryId: categoryId,
+                                      initialCategoryName: categoryName,
+                                    ),
+                                  ),
+                                );
+                              }
+                            : null,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF6B35), Color(0xFFFF8C42)],
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF6B35).withValues(alpha: 0.3),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.category, size: 10, color: Colors.white),
+                              const SizedBox(width: 4),
+                              Text(
+                                categoryName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      ...tags.take(2).map((tag) {
+                        final tagName = tag['name'] ?? '';
+                        final tagId = tag['id'];
+                        return GestureDetector(
+                          onTap: tagId != null
                               ? () {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) => SearchingScreen(
-                                        initialCategoryId: categoryId,
-                                        initialCategoryName: categoryName,
+                                        initialTagId: tagId,
+                                        initialTagName: tagName,
                                       ),
                                     ),
                                   );
                                 }
                               : null,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFFFF6B35), Color(0xFFFF8C42)],
+                              color: const Color(0xFF6C63FF).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
                               ),
-                              borderRadius: BorderRadius.circular(8),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFFFF6B35).withValues(alpha: 0.3),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.category, size: 10, color: Colors.white),
-                                const SizedBox(width: 4),
-                                Text(
-                                  categoryName,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
+                            child: Text(
+                              '#$tagName',
+                              style: const TextStyle(
+                                color: Color(0xFF6C63FF),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ),
-                        
-                        // Tags chips (max 2 untuk save space)
-                        ...tags.take(2).map((tag) {
-                          final tagName = tag['name'] ?? '';
-                          final tagId = tag['id'];
-                          return GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => SearchingScreen(
-                                    initialTagId: tagId,
-                                    initialTagName: tagName,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF6C63FF).withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
-                                ),
-                              ),
-                              child: Text(
-                                '#$tagName',
-                                style: const TextStyle(
-                                  color: Color(0xFF6C63FF),
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-                      ],
-                    ),
+                        );
+                      }),
+                    ],
+                  ),
 
-                    const Spacer(),
+                  const SizedBox(height: 8),
 
-                    // Time and Calories (bottom)
-                    Row(
-                      children: [
-                        Icon(Icons.access_time, size: 12, color: Colors.grey.shade500),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${recipe['cooking_time'] ?? 0}m',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w500,
-                          ),
+                  // Time & Calories - DIPINDAHKAN KE DALAM PADDING
+                  Row(
+                    children: [
+                      Icon(Icons.access_time, size: 12, color: Colors.grey.shade500),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${recipe['cooking_time'] ?? 0}m',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
                         ),
-                        const SizedBox(width: 12),
-                        Icon(Icons.local_fire_department, size: 12, color: Colors.grey.shade500),
-                        const SizedBox(width: 4),
-                        Text(
-                          recipe['calories'] != null ? '${recipe['calories']} kcal' : 'N/A',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w500,
-                          ),
+                      ),
+                      const SizedBox(width: 12),
+                      Icon(Icons.local_fire_department, size: 12, color: Colors.grey.shade500),
+                      const SizedBox(width: 4),
+                      Text(
+                        recipe['calories'] != null ? '${recipe['calories']} kcal' : 'N/A',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
@@ -417,19 +394,17 @@ class RecipeCard extends StatelessWidget {
     );
   }
 
-  /// Mendapatkan warna border berdasarkan role
   Color _getRoleBorderColor(String role) {
     switch (role) {
       case 'admin':
-        return const Color(0xFFFFD700); // Gold
+        return const Color(0xFFFFD700);
       case 'premium':
-        return const Color(0xFF6C63FF); // Purple
+        return const Color(0xFF6C63FF);
       default:
         return Colors.grey.shade400;
     }
   }
 
-  /// Mendapatkan label role
   String _getRoleLabel(String role) {
     switch (role) {
       case 'admin':

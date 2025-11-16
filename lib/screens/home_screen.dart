@@ -4,9 +4,9 @@ import '../utils/supabase_client.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/custom_bottom_nav.dart';
 import '../widgets/recipe_card.dart';
-import 'category_recipes_screen.dart';
 import 'detail_screen.dart';
 import 'login_screen.dart';
+import 'create_recipe_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,32 +15,86 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   String? _avatarUrl;
+  String? _username;
   bool _isLoading = true;
-  List<Map<String, dynamic>> _categories = [];
   List<Map<String, dynamic>> _popularRecipes = [];
   final Map<String, double> _recipeRatings = {};
   RealtimeChannel? _bannedChannel;
+  
+  // User stats
+  int _myRecipesCount = 0;
+  int _bookmarksCount = 0;
+  int _followersCount = 0;
+
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  // Daily motivations (hardcoded)
+  final List<Map<String, String>> _dailyQuotes = [
+    {
+      'quote': 'Masakan terbaik dibuat dengan cinta ❤️',
+      'author': 'Chef Julia Child'
+    },
+    {
+      'quote': 'Memasak adalah seni yang bisa dinikmati semua orang 🎨',
+      'author': 'Gordon Ramsay'
+    },
+    {
+      'quote': 'Resep adalah cerita yang berakhir dengan makanan lezat 📖',
+      'author': 'Pat Conroy'
+    },
+    {
+      'quote': 'Kebahagiaan dimulai dari dapur 🍳',
+      'author': 'Traditional Wisdom'
+    },
+    {
+      'quote': 'Setiap chef adalah seniman dengan palet rasa 🎭',
+      'author': 'Anonymous'
+    },
+    {
+      'quote': 'Masak dengan hati, sajikan dengan senyuman 😊',
+      'author': 'Savora Community'
+    },
+  ];
 
   @override
   void initState() {
     super.initState();
-    _loadUserData();
-    _loadCategories();
-    _loadPopularRecipes();
     
-    // ✅ Listen for banned status changes
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    );
+    
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.2),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic,
+    ));
+    
+    _loadUserData();
+    _loadUserStats();
+    _loadPopularRecipes();
     _setupBannedListener();
   }
 
   @override
   void dispose() {
     _bannedChannel?.unsubscribe();
+    _animationController.dispose();
     super.dispose();
   }
 
-  // ✅ Setup realtime listener for banned status
   void _setupBannedListener() {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) return;
@@ -66,7 +120,6 @@ class _HomeScreenState extends State<HomeScreen> {
         .subscribe();
   }
 
-  // ✅ Handle banned user logout
   Future<void> _handleBannedUser() async {
     try {
       await supabase.auth.signOut();
@@ -86,7 +139,7 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     } catch (e) {
-      debugPrint('Error handling banned user: $e');
+      debugPrint('Error saat menangani akun yang diblokir: $e');
     }
   }
 
@@ -96,51 +149,66 @@ class _HomeScreenState extends State<HomeScreen> {
       if (userId != null) {
         final response = await supabase
             .from('profiles')
-            .select('avatar_url')
+            .select('avatar_url, username')
             .eq('id', userId)
             .single();
         if (mounted) {
           setState(() {
             _avatarUrl = response['avatar_url'];
-            _isLoading = false;
+            _username = response['username'];
           });
         }
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+      debugPrint('Error loading user data: $e');
     }
   }
 
-  Future<void> _loadCategories() async {
+  // ===== MEMUAT STATISTIK PENGGUNA =====
+  // Ambil jumlah resep, bookmark, dan followers dari kolom yang sudah dihitung di profiles
+  Future<void> _loadUserStats() async {
     try {
-      final response = await supabase.from('categories').select().order('name');
-      if (mounted) {
-        setState(() {
-          _categories = List<Map<String, dynamic>>.from(response);
-        });
+      final userId = supabase.auth.currentUser?.id;
+      if (userId != null) {
+        // Ambil data statistik dari kolom yang sudah dihitung di tabel profiles
+        final response = await supabase
+            .from('profiles')
+            .select('total_recipes, total_bookmarks, total_followers')
+            .eq('id', userId)
+            .single();
+
+        if (mounted) {
+          setState(() {
+            _myRecipesCount = response['total_recipes'] ?? 0;
+            _bookmarksCount = response['total_bookmarks'] ?? 0;
+            _followersCount = response['total_followers'] ?? 0;
+          });
+        }
       }
     } catch (e) {
-      debugPrint('Error loading categories: $e');
+      debugPrint('Error loading user stats from profiles: $e');
     }
   }
 
   Future<void> _loadPopularRecipes() async {
+    setState(() => _isLoading = true);
+    
     try {
       final response = await supabase
           .from('recipes')
           .select('''
             *, 
-            profiles!recipes_user_id_fkey(username, avatar_url),
-            categories(id, name)
+            profiles!recipes_user_id_fkey(username, avatar_url, role),
+            categories(id, name),
+            recipe_tags(tags(id, name))
           ''')
           .eq('status', 'approved')
           .order('views_count', ascending: false)
-          .limit(10);
+          .limit(20);
       
       if (mounted) {
         final recipes = List<Map<String, dynamic>>.from(response);
         
-        // Load ratings for each recipe
         for (var recipe in recipes) {
           final ratingResponse = await supabase
               .from('recipe_ratings')
@@ -155,144 +223,550 @@ class _HomeScreenState extends State<HomeScreen> {
         
         setState(() {
           _popularRecipes = recipes;
+          _isLoading = false;
         });
+        
+        _animationController.forward();
       }
     } catch (e) {
-      debugPrint('Error loading recipes: $e');
+      debugPrint('Gagal memuat resep: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
+  }
+
+  String _getDailyQuote() {
+    // Get day of year to select quote
+    final now = DateTime.now();
+    final dayOfYear = now.difference(DateTime(now.year, 1, 1)).inDays;
+    final index = dayOfYear % _dailyQuotes.length;
+    return _dailyQuotes[index]['quote']!;
+  }
+
+  String _getDailyQuoteAuthor() {
+    final now = DateTime.now();
+    final dayOfYear = now.difference(DateTime(now.year, 1, 1)).inDays;
+    final index = dayOfYear % _dailyQuotes.length;
+    return _dailyQuotes[index]['author']!;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF8F0),
+      backgroundColor: Colors.white,
       appBar: const CustomAppBar(),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : CustomScrollView(
-              slivers: [
-                // Category Tabs
-                SliverToBoxAdapter(
-                  child: Container(
-                    height: 40,
-                    margin: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: _categories.isEmpty
-                        ? const Center(child: CircularProgressIndicator())
-                        : ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            itemCount: _categories.length + 1,
-                            itemBuilder: (context, index) {
-                              if (index == 0) {
-                                return _buildCategoryTab('All', true);
-                              }
-                              final category = _categories[index - 1];
-                              return GestureDetector(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => CategoryRecipesScreen(
-                                        categoryId: category['id'],
-                                        categoryName: category['name'],
-                                      ),
-                                    ),
-                                  );
-                                },
-                                child: _buildCategoryTab(category['name'], false),
-                              );
-                            },
-                          ),
-                  ),
-                ),
-
-                // Recipe Grid
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                  sliver: _popularRecipes.isEmpty
-                      ? SliverToBoxAdapter(
-                          child: Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(40),
-                              child: Column(
-                                children: [
-                                  Icon(Icons.restaurant_menu, size: 60, color: Colors.grey.shade300),
-                                  const SizedBox(height: 16),
-                                  Text('Belum ada resep', style: TextStyle(fontSize: 16, color: Colors.grey.shade500)),
-                                ],
-                              ),
-                            ),
-                          ),
-                        )
-                      : SliverGrid(
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            childAspectRatio: 0.65,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                          ),
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final recipe = _popularRecipes[index];
-                              return RecipeCard(
-                                recipe: recipe,
-                                rating: _recipeRatings[recipe['id']],
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => DetailScreen(recipeId: recipe['id'].toString()),
-                                    ),
-                                  ).then((_) => _loadPopularRecipes());
-                                },
-                              );
-                            },
-                            childCount: _popularRecipes.length,
-                          ),
-                        ),
-                ),
-                
-                const SliverToBoxAdapter(child: SizedBox(height: 80)),
-              ],
-            ),
+          ? _buildLoadingState()
+          : _popularRecipes.isEmpty
+              ? _buildEnhancedEmptyState()
+              : _buildContent(),
       bottomNavigationBar: CustomBottomNav(
         currentIndex: 0,
         avatarUrl: _avatarUrl,
-        onRefresh: _loadPopularRecipes,
+        onRefresh: () {
+          _loadUserStats();
+          _loadPopularRecipes();
+        },
       ),
     );
   }
 
-  Widget _buildCategoryTab(String name, bool isSelected) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFFE89A6F) : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Center(
-        child: Text(
-          name,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? Colors.white : const Color(0xFF5C4033),
-            fontStyle: isSelected ? FontStyle.normal : FontStyle.italic,
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF2B6CB0).withValues(alpha: 0.1),
+                  const Color(0xFFFF6B35).withValues(alpha: 0.1),
+                ],
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  const Color(0xFF2B6CB0),
+                ),
+                strokeWidth: 3,
+              ),
+            ),
           ),
+          const SizedBox(height: 20),
+          Text(
+            'Memuat resep lezat...',
+            style: TextStyle(
+              color: Colors.grey.shade700,
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // Welcome Card dengan Personal Stats & Daily Quote
+          SliverToBoxAdapter(
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: Container(
+                margin: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFF2B6CB0),
+                      const Color(0xFF3182CE),
+                      Colors.blue.shade400,
+                      Colors.orange.shade400,
+                      const Color(0xFFFF6B35),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2B6CB0).withValues(alpha: 0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // Welcome Section
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Halo, ${_username ?? 'Foodie'}! 👋',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  letterSpacing: 0.3,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Selamat datang kembali di Savora',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          
+                          // User Stats
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildStatItem(
+                                  icon: Icons.restaurant_rounded,
+                                  value: _myRecipesCount.toString(),
+                                  label: 'Resep Saya',
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _buildStatItem(
+                                  icon: Icons.bookmark_rounded,
+                                  value: _bookmarksCount.toString(),
+                                  label: 'Tersimpan',
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _buildStatItem(
+                                  icon: Icons.people_rounded,
+                                  value: _followersCount.toString(),
+                                  label: 'Pengikut',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    // Daily Quote Section
+                    Container(
+                      margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.3),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.format_quote_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Inspirasi Hari Ini',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            _getDailyQuote(),
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontStyle: FontStyle.italic,
+                              color: Colors.white,
+                              height: 1.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '— ${_getDailyQuoteAuthor()}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withValues(alpha: 0.85),
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Section Title
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF2B6CB0),
+                          const Color(0xFFFF6B35),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Resep Terpopuler',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF2D3748),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF2B6CB0).withValues(alpha: 0.1),
+                          const Color(0xFFFF6B35).withValues(alpha: 0.1),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: const Color(0xFF2B6CB0).withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.local_fire_department_rounded,
+                          size: 16,
+                          color: const Color(0xFFFF6B35),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${_popularRecipes.length}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: const Color(0xFF2B6CB0),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Recipe Grid
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.55,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final recipe = _popularRecipes[index];
+                  return FadeTransition(
+                    opacity: _animationController,
+                    child: RecipeCard(
+                      recipe: recipe,
+                      rating: _recipeRatings[recipe['id']],
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DetailScreen(
+                              recipeId: recipe['id'].toString(),
+                            ),
+                          ),
+                        ).then((_) {
+                          _loadUserStats();
+                          _loadPopularRecipes();
+                        });
+                      },
+                    ),
+                  );
+                },
+                childCount: _popularRecipes.length,
+              ),
+            ),
+          ),
+          
+          const SliverToBoxAdapter(child: SizedBox(height: 100)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem({
+    required IconData icon,
+    required String value,
+    required String label,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: Colors.white, size: 22),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.white.withValues(alpha: 0.9),
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEnhancedEmptyState() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 60),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TweenAnimationBuilder<double>(
+              duration: const Duration(milliseconds: 1200),
+              tween: Tween(begin: 0.0, end: 1.0),
+              curve: Curves.elasticOut,
+              builder: (context, value, child) {
+                return Transform.scale(
+                  scale: value,
+                  child: Container(
+                    width: 140,
+                    height: 140,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF2B6CB0).withValues(alpha: 0.15),
+                          const Color(0xFFFF6B35).withValues(alpha: 0.15),
+                        ],
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF2B6CB0).withValues(alpha: 0.2),
+                          blurRadius: 30,
+                          spreadRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.restaurant_menu_rounded,
+                      size: 70,
+                      color: const Color(0xFF2B6CB0),
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 32),
+            
+            Text(
+              'Belum Ada Resep',
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade900,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            
+            Text(
+              'Jadilah yang pertama membagikan\nresep lezat dan inspirasi kuliner!',
+              style: TextStyle(
+                fontSize: 15,
+                color: Colors.grey.shade600,
+                height: 1.6,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 40),
+            
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CreateRecipeScreen(),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Ink(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF2B6CB0),
+                        const Color(0xFF3182CE),
+                        Colors.blue.shade400,
+                        Colors.orange.shade400,
+                        const Color(0xFFFF6B35),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF2B6CB0).withValues(alpha: 0.4),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.add_circle_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Buat Resep Pertama',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
-}
+} 
