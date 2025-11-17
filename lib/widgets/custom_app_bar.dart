@@ -20,13 +20,25 @@ class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   State<CustomAppBar> createState() => _CustomAppBarState();
 }
 
-class _CustomAppBarState extends State<CustomAppBar> {
+class _CustomAppBarState extends State<CustomAppBar> with SingleTickerProviderStateMixin {
   int _unreadCount = 0;
   RealtimeChannel? _notificationChannel;
+  late AnimationController _badgeController;
+  late Animation<double> _badgeAnimation;
 
   @override
   void initState() {
     super.initState();
+    _badgeController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _badgeAnimation = Tween<double>(begin: 1.0, end: 1.3).animate(
+      CurvedAnimation(
+        parent: _badgeController,
+        curve: Curves.elasticOut,
+      ),
+    );
     _loadUnreadCount();
     _setupRealtimeListener();
   }
@@ -34,6 +46,7 @@ class _CustomAppBarState extends State<CustomAppBar> {
   @override
   void dispose() {
     _notificationChannel?.unsubscribe();
+    _badgeController.dispose();
     super.dispose();
   }
 
@@ -49,6 +62,9 @@ class _CustomAppBarState extends State<CustomAppBar> {
 
         if (mounted) {
           setState(() => _unreadCount = response.length);
+          if (_unreadCount > 0) {
+            _badgeController.forward(from: 0);
+          }
         }
       }
     } catch (e) {
@@ -83,34 +99,60 @@ class _CustomAppBarState extends State<CustomAppBar> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
         ),
+        contentPadding: const EdgeInsets.all(24),
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.red.shade400, Colors.red.shade600],
-                ),
-                borderRadius: BorderRadius.circular(10),
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.logout, color: Colors.white, size: 20),
+              child: Icon(Icons.logout_rounded, color: Colors.red.shade600, size: 24),
             ),
-            const SizedBox(width: 12),
-            const Text('Keluar'),
+            const SizedBox(width: 16),
+            const Expanded(
+              child: Text(
+                'Keluar dari Akun',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
           ],
         ),
-        content: const Text(
-          'Apakah Anda yakin ingin keluar dari akun?',
-          style: TextStyle(fontSize: 15),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Apakah Anda yakin ingin keluar dari akun Savora?',
+              style: TextStyle(
+                fontSize: 15,
+                color: Colors.grey.shade700,
+                height: 1.5,
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             child: Text(
               'Batal',
-              style: TextStyle(color: Colors.grey.shade600),
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           Container(
@@ -118,20 +160,36 @@ class _CustomAppBarState extends State<CustomAppBar> {
               gradient: LinearGradient(
                 colors: [Colors.red.shade400, Colors.red.shade600],
               ),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.red.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: TextButton(
               onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               child: const Text(
                 'Keluar',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
         ],
       ),
     );
-    
+
     if (confirm == true) {
       await supabase.auth.signOut();
       if (context.mounted) {
@@ -150,30 +208,31 @@ class _CustomAppBarState extends State<CustomAppBar> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         elevation: 0,
         leading: widget.showBackButton
-            ? Container(
-                margin: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.orange.shade400, Colors.deepOrange.shade500],
-                  ),
-                  borderRadius: BorderRadius.circular(10),
-                ),
+            ? Padding(
+                padding: const EdgeInsets.all(8),
                 child: Material(
-                  color: Colors.transparent,
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
                   child: InkWell(
                     onTap: () => Navigator.pop(context),
-                    borderRadius: BorderRadius.circular(10),
-                    child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Center(
+                      child: Icon(
+                        Icons.arrow_back_rounded,
+                        color: Colors.grey.shade800,
+                        size: 22,
+                      ),
+                    ),
                   ),
                 ),
               )
@@ -191,13 +250,20 @@ class _CustomAppBarState extends State<CustomAppBar> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        width: 36,
-                        height: 36,
+                        width: 40,
+                        height: 40,
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Colors.orange.shade400, Colors.deepOrange.shade500],
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF2B6CB0), Color(0xFFFF6B35)],
                           ),
                           shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF2B6CB0).withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         padding: const EdgeInsets.all(2),
                         child: Container(
@@ -209,26 +275,24 @@ class _CustomAppBarState extends State<CustomAppBar> {
                             child: Image.asset(
                               'assets/images/logo.png',
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => const Center(
-                                child: Icon(
-                                  Icons.restaurant_rounded,
-                                  size: 20,
-                                  color: Color(0xFFFF6B35),
-                                ),
+                              errorBuilder: (context, error, stackTrace) => const Icon(
+                                Icons.restaurant_rounded,
+                                size: 20,
+                                color: Color(0xFF2B6CB0),
                               ),
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 12),
                       ShaderMask(
-                        shaderCallback: (bounds) => LinearGradient(
-                          colors: [Colors.orange.shade600, Colors.deepOrange.shade700],
+                        shaderCallback: (bounds) => const LinearGradient(
+                          colors: [Color(0xFF2B6CB0), Color(0xFFFF6B35)],
                         ).createShader(bounds),
                         child: const Text(
                           "Savora",
                           style: TextStyle(
-                            fontSize: 20,
+                            fontSize: 22,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                             letterSpacing: 0.5,
@@ -240,24 +304,16 @@ class _CustomAppBarState extends State<CustomAppBar> {
                 ),
               ),
         titleSpacing: 0,
-        title: widget.showBackButton
-            ? null
-            : const SizedBox.shrink(),
         actions: [
           // Notification button
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.orange.shade400, Colors.deepOrange.shade500],
-                  ),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Material(
-                  color: Colors.transparent,
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Material(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
                   child: InkWell(
                     onTap: () {
                       Navigator.push(
@@ -265,61 +321,82 @@ class _CustomAppBarState extends State<CustomAppBar> {
                         MaterialPageRoute(builder: (_) => const NotificationScreen()),
                       ).then((_) => _loadUnreadCount());
                     },
-                    borderRadius: BorderRadius.circular(10),
-                    child: const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Icon(Icons.notifications_rounded, color: Colors.white, size: 20),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.notifications_rounded,
+                        color: Colors.grey.shade800,
+                        size: 22,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              if (_unreadCount > 0)
-                Positioned(
-                  right: 0,
-                  top: 4,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.red.shade400, Colors.red.shade600],
+                if (_unreadCount > 0)
+                  Positioned(
+                    right: -2,
+                    top: -2,
+                    child: ScaleTransition(
+                      scale: _badgeAnimation,
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF6B35), Color(0xFFFF8C42)],
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.orange.withValues(alpha: 0.4),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                          border: Border.all(
+                            color: Colors.white,
+                            width: 2,
+                          ),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 20,
+                          minHeight: 20,
+                        ),
+                        child: Text(
+                          _unreadCount > 99 ? '99+' : _unreadCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 18,
-                      minHeight: 18,
-                    ),
-                    child: Text(
-                      _unreadCount > 99 ? '99+' : _unreadCount.toString(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
                     ),
                   ),
-                ),
-            ],
-          ),
-          
-          // Logout button
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.red.shade400, Colors.red.shade600],
-              ),
-              borderRadius: BorderRadius.circular(10),
+              ],
             ),
+          ),
+
+          // Logout button
+          Padding(
+            padding: const EdgeInsets.all(8),
             child: Material(
-              color: Colors.transparent,
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
               child: InkWell(
                 onTap: () => _signOut(context),
-                borderRadius: BorderRadius.circular(10),
-                child: const Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Icon(Icons.logout_rounded, color: Colors.white, size: 20),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.logout_rounded,
+                    color: Colors.grey.shade800,
+                    size: 22,
+                  ),
                 ),
               ),
             ),

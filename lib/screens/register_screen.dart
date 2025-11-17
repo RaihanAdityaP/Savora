@@ -24,12 +24,18 @@ class _RegisterScreenState extends State<RegisterScreen>
   late Animation<Offset> _slideAnimation;
   late Animation<double> _scaleAnimation;
 
+  // New Color Palette
+  static const Color primaryColor = Color(0xFFE76F51); // Terracotta
+  static const Color secondaryColor = Color(0xFFF4A261); // Sandy Orange
+  static const Color accentColor = Color(0xFFE9C46A); // Warm Yellow
+  static const Color darkAccent = Color(0xFF264653); // Dark Blue-Green
+
   @override
   void initState() {
     super.initState();
 
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1800),
       vsync: this,
     );
 
@@ -39,7 +45,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
 
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
+      begin: const Offset(0, 0.4),
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _animationController,
@@ -47,11 +53,11 @@ class _RegisterScreenState extends State<RegisterScreen>
     ));
 
     _scaleAnimation = Tween<double>(
-      begin: 0.8,
+      begin: 0.7,
       end: 1.0,
     ).animate(CurvedAnimation(
       parent: _animationController,
-      curve: Curves.easeOutBack,
+      curve: Curves.elasticOut,
     ));
 
     _animationController.forward();
@@ -188,25 +194,34 @@ class _RegisterScreenState extends State<RegisterScreen>
       context: context,
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
         ),
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFF2B6CB0),
-                    Colors.blue.shade400,
-                  ],
+                gradient: const LinearGradient(
+                  colors: [primaryColor, secondaryColor],
                 ),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: primaryColor.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              child: const Icon(Icons.email, color: Colors.white, size: 24),
+              child: const Icon(Icons.email_rounded, color: Colors.white, size: 24),
             ),
-            const SizedBox(width: 12),
-            const Text('Email Sudah Terdaftar'),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Text(
+                'Email Sudah Terdaftar',
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
         ),
         content: Column(
@@ -215,44 +230,66 @@ class _RegisterScreenState extends State<RegisterScreen>
           children: [
             Text(
               'Email ${_emailController.text} sudah terdaftar.',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
             const SizedBox(height: 16),
             const Text(
               'Kemungkinan Anda belum verifikasi email. Kirim ulang email verifikasi?',
-              style: TextStyle(fontSize: 14),
+              style: TextStyle(fontSize: 14, height: 1.5),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: Text(
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.grey.shade600,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            child: const Text(
               'Batal',
-              style: TextStyle(color: Colors.grey.shade600),
+              style: TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
           Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFF2B6CB0),
-                  Colors.blue.shade400,
-                ],
+              gradient: const LinearGradient(
+                colors: [primaryColor, secondaryColor],
               ),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: primaryColor.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-            child: TextButton.icon(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                _resendVerificationEmail();
-              },
-              icon: const Icon(Icons.send, color: Colors.white, size: 18),
-              label: const Text(
-                'Kirim Ulang',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  Navigator.pop(dialogContext);
+                  _resendVerificationEmail();
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'Kirim Ulang',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -268,22 +305,32 @@ class _RegisterScreenState extends State<RegisterScreen>
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
         ),
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [Colors.green.shade400, Colors.green.shade600],
                 ),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.green.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              child: const Icon(Icons.check_circle, color: Colors.white, size: 28),
+              child: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 28),
             ),
-            const SizedBox(width: 12),
-            const Text('Berhasil!'),
+            const SizedBox(width: 14),
+            const Text(
+              'Berhasil!',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: Column(
@@ -292,26 +339,32 @@ class _RegisterScreenState extends State<RegisterScreen>
           children: [
             const Text(
               'Akun Anda telah dibuat.',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.shade200),
+                gradient: LinearGradient(
+                  colors: [
+                    accentColor.withValues(alpha: 0.2),
+                    secondaryColor.withValues(alpha: 0.1),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: accentColor.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.email, color: Colors.blue.shade700, size: 20),
-                  const SizedBox(width: 8),
+                  Icon(Icons.email_rounded, color: primaryColor, size: 22),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'Email verifikasi telah dikirim ke ${_emailController.text}',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.blue.shade900,
+                        color: darkAccent,
+                        height: 1.4,
                       ),
                     ),
                   ),
@@ -319,22 +372,30 @@ class _RegisterScreenState extends State<RegisterScreen>
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Silakan cek inbox atau folder spam Anda dan klik link verifikasi untuk mengaktifkan akun.',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+                height: 1.5,
+              ),
             ),
           ],
         ),
         actions: [
           Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFF2B6CB0),
-                  Colors.blue.shade400,
-                ],
+              gradient: const LinearGradient(
+                colors: [primaryColor, secondaryColor],
               ),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: primaryColor.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: TextButton(
               onPressed: () {
@@ -343,11 +404,15 @@ class _RegisterScreenState extends State<RegisterScreen>
                   MaterialPageRoute(builder: (_) => const LoginScreen()),
                 );
               },
-              child: const Text(
-                'OK, Mengerti',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Text(
+                  'OK, Mengerti',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
                 ),
               ),
             ),
@@ -363,7 +428,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         content: Row(
           children: [
             Icon(
-              isError ? Icons.error_outline : Icons.check_circle_outline,
+              isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
               color: Colors.white,
             ),
             const SizedBox(width: 12),
@@ -372,8 +437,9 @@ class _RegisterScreenState extends State<RegisterScreen>
         ),
         backgroundColor: isError ? Colors.red.shade600 : Colors.green.shade600,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -382,23 +448,24 @@ class _RegisterScreenState extends State<RegisterScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF2B6CB0),
-              const Color(0xFF3182CE),
-              Colors.blue.shade400,
-              Colors.orange.shade400,
-              const Color(0xFFFF6B35),
+              darkAccent,
+              Color(0xFF2A9D8F),
+              accentColor,
+              secondaryColor,
+              primaryColor,
             ],
+            stops: [0.0, 0.25, 0.5, 0.75, 1.0],
           ),
         ),
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(28),
               child: FadeTransition(
                 opacity: _fadeAnimation,
                 child: Column(
@@ -415,50 +482,58 @@ class _RegisterScreenState extends State<RegisterScreen>
                             color: Colors.white.withValues(alpha: 0.5),
                             width: 2,
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
                         ),
                         child: IconButton(
-                          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 24),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 28),
 
                     // Logo with Animation
                     ScaleTransition(
                       scale: _scaleAnimation,
                       child: Container(
-                        padding: const EdgeInsets.all(28),
+                        padding: const EdgeInsets.all(30),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.2),
-                              blurRadius: 30,
+                              color: primaryColor.withValues(alpha: 0.4),
+                              blurRadius: 40,
+                              spreadRadius: 5,
                               offset: const Offset(0, 15),
                             ),
                             BoxShadow(
-                              color: Colors.white.withValues(alpha: 0.4),
-                              blurRadius: 40,
-                              spreadRadius: 10,
+                              color: Colors.white.withValues(alpha: 0.5),
+                              blurRadius: 50,
+                              spreadRadius: 15,
                             ),
                           ],
                         ),
                         child: Image.asset(
                           'assets/images/logo.png',
-                          width: 80,
-                          height: 80,
+                          width: 85,
+                          height: 85,
                           errorBuilder: (context, error, stackTrace) =>
-                              Icon(
-                            Icons.restaurant,
-                            size: 80,
-                            color: Colors.blue.shade600,
+                              const Icon(
+                            Icons.restaurant_rounded,
+                            size: 85,
+                            color: primaryColor,
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 32),
 
                     // Title
                     SlideTransition(
@@ -466,21 +541,28 @@ class _RegisterScreenState extends State<RegisterScreen>
                       child: Column(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 12),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
+                              color: Colors.white.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(30),
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.3),
+                                color: Colors.white.withValues(alpha: 0.4),
                                 width: 2,
                               ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.1),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 5),
+                                ),
+                              ],
                             ),
                             child: Text(
-                              'JOIN US',
+                              'BERGABUNG',
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                letterSpacing: 3,
+                                letterSpacing: 4,
                                 color: Colors.white,
                                 shadows: [
                                   Shadow(
@@ -493,25 +575,27 @@ class _RegisterScreenState extends State<RegisterScreen>
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Create Account',
+                            'Buat Akun',
                             style: TextStyle(
-                              fontSize: 40,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 46,
+                              fontWeight: FontWeight.w900,
                               color: Colors.white,
+                              letterSpacing: -1,
                               shadows: [
                                 Shadow(
                                   color: Colors.black.withValues(alpha: 0.3),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 5),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 10),
                           Text(
-                            'Start your culinary journey',
+                            'Mulai Petualangan Kuliner Anda',
+                            textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 15,
                               color: Colors.white.withValues(alpha: 0.95),
                               fontWeight: FontWeight.w500,
                               letterSpacing: 0.5,
@@ -520,22 +604,22 @@ class _RegisterScreenState extends State<RegisterScreen>
                         ],
                       ),
                     ),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 42),
 
                     // Register Card
                     SlideTransition(
                       position: _slideAnimation,
                       child: Container(
-                        constraints: const BoxConstraints(maxWidth: 450),
-                        padding: const EdgeInsets.all(32),
+                        constraints: const BoxConstraints(maxWidth: 460),
+                        padding: const EdgeInsets.all(36),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(30),
+                          borderRadius: BorderRadius.circular(32),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.2),
-                              blurRadius: 30,
-                              offset: const Offset(0, 15),
+                              color: Colors.black.withValues(alpha: 0.25),
+                              blurRadius: 40,
+                              offset: const Offset(0, 20),
                             ),
                           ],
                         ),
@@ -546,57 +630,55 @@ class _RegisterScreenState extends State<RegisterScreen>
                               controller: _usernameController,
                               hint: 'Username',
                               icon: Icons.person_outline_rounded,
-                              color: Colors.blue.shade600,
+                              color: primaryColor,
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 18),
 
                             // Full Name Field
                             _buildModernTextField(
                               controller: _fullNameController,
-                              hint: 'Full Name',
+                              hint: 'Nama Lengkap',
                               icon: Icons.badge_outlined,
-                              color: Colors.purple.shade600,
+                              color: const Color(0xFF2A9D8F),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 18),
 
                             // Email Field
                             _buildModernTextField(
                               controller: _emailController,
                               hint: 'Email Address',
                               icon: Icons.email_outlined,
-                              color: Colors.green.shade600,
+                              color: accentColor,
                               keyboardType: TextInputType.emailAddress,
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 18),
 
                             // Password Field
                             _buildModernTextField(
                               controller: _passwordController,
                               hint: 'Password',
-                              icon: Icons.lock_outlined,
-                              color: Colors.orange.shade600,
+                              icon: Icons.lock_outline_rounded,
+                              color: secondaryColor,
                               isPassword: true,
                             ),
-                            const SizedBox(height: 28),
+                            const SizedBox(height: 30),
 
                             // Register Button
                             Container(
                               width: double.infinity,
-                              height: 56,
+                              height: 58,
                               decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    const Color(0xFF2B6CB0),
-                                    Colors.blue.shade400,
-                                    Colors.orange.shade400,
-                                  ],
+                                gradient: const LinearGradient(
+                                  colors: [primaryColor, secondaryColor, accentColor],
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
                                 ),
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.blue.withValues(alpha: 0.4),
-                                    blurRadius: 15,
-                                    offset: const Offset(0, 8),
+                                    color: primaryColor.withValues(alpha: 0.5),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 10),
                                   ),
                                 ],
                               ),
@@ -608,19 +690,19 @@ class _RegisterScreenState extends State<RegisterScreen>
                                   child: Center(
                                     child: _isLoading
                                         ? const SizedBox(
-                                            height: 24,
-                                            width: 24,
+                                            height: 26,
+                                            width: 26,
                                             child: CircularProgressIndicator(
-                                              strokeWidth: 2.5,
+                                              strokeWidth: 3,
                                               color: Colors.white,
                                             ),
                                           )
                                         : const Text(
-                                            'CREATE ACCOUNT',
+                                            'DAFTAR SEKARANG',
                                             style: TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.bold,
-                                              letterSpacing: 1.5,
+                                              letterSpacing: 2,
                                               color: Colors.white,
                                             ),
                                           ),
@@ -636,50 +718,64 @@ class _RegisterScreenState extends State<RegisterScreen>
 
                     // Sign In Link
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.3),
+                          color: Colors.white.withValues(alpha: 0.4),
                           width: 2,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'Already have an account?',
+                            'Sudah Punya Akun?',
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.95),
                               fontSize: 15,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 10),
                           GestureDetector(
                             onTap: () => Navigator.pop(context),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: primaryColor.withValues(alpha: 0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
                               ),
-                              child: Row(
+                              child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    'Sign In',
+                                    'Masuk',
                                     style: TextStyle(
-                                      color: Colors.blue.shade600,
+                                      color: primaryColor,
                                       fontSize: 15,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  const SizedBox(width: 4),
+                                  SizedBox(width: 6),
                                   Icon(
                                     Icons.arrow_forward_rounded,
-                                    color: Colors.blue.shade600,
+                                    color: primaryColor,
                                     size: 18,
                                   ),
                                 ],
@@ -715,6 +811,13 @@ class _RegisterScreenState extends State<RegisterScreen>
           color: Colors.grey.shade200,
           width: 2,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: TextField(
         controller: controller,
@@ -741,6 +844,10 @@ class _RegisterScreenState extends State<RegisterScreen>
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: color, width: 2),
           ),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 20,
