@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../screens/detail_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/searching_screen.dart';
+import '../utils/supabase_client.dart';
 
 class RecipeCard extends StatefulWidget {
   final Map<String, dynamic> recipe;
@@ -21,6 +22,495 @@ class RecipeCard extends StatefulWidget {
 
 class _RecipeCardState extends State<RecipeCard> {
   bool _isPressed = false;
+  bool _isFavorite = false;
+  bool _isCheckingFavorite = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkIfFavorite();
+  }
+
+  Future<void> _checkIfFavorite() async {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId != null) {
+        final response = await supabase
+            .from('favorites')
+            .select()
+            .eq('user_id', userId)
+            .eq('recipe_id', widget.recipe['id'])
+            .maybeSingle();
+        
+        if (mounted) {
+          setState(() {
+            _isFavorite = response != null;
+            _isCheckingFavorite = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isCheckingFavorite = false);
+      }
+    }
+  }
+
+  Future<void> _showBoardSelector() async {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) {
+        if (!mounted) return;
+        _showSnackBar('Silakan login terlebih dahulu', isError: true);
+        return;
+      }
+
+      // Load user's boards
+      final boards = await supabase
+          .from('recipe_boards')
+          .select('id, name, description')
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+
+      if (!mounted) return;
+
+      showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (context) => _buildBoardSelectorSheet(
+          List<Map<String, dynamic>>.from(boards),
+          userId,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar('Error: $e', isError: true);
+    }
+  }
+
+  Widget _buildBoardSelectorSheet(List<Map<String, dynamic>> boards, String userId) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.collections_bookmark_rounded, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Simpan ke Koleksi',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF264653),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Create new collection button
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFE76F51), Color(0xFFF4A261), Color(0xFFE9C46A)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFE76F51).withValues(alpha: 0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  Navigator.pop(context);
+                  _showCreateBoardDialog(userId);
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Buat Koleksi Baru',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 16),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Collections list
+          if (boards.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(Icons.collections_bookmark_outlined, size: 48, color: Colors.grey.shade400),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Belum ada koleksi',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Buat koleksi pertama Anda',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: boards.length,
+                itemBuilder: (context, index) {
+                  final board = boards[index];
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFFE76F51).withValues(alpha: 0.2),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.pop(context);
+                          _addToBoard(board['id'], board['name']);
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      const Color(0xFFE76F51).withValues(alpha: 0.2),
+                                      const Color(0xFFF4A261).withValues(alpha: 0.1),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.collections_bookmark_rounded,
+                                  color: Color(0xFFE76F51),
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      board['name'] ?? '',
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF264653),
+                                      ),
+                                    ),
+                                    if (board['description'] != null &&
+                                        board['description'].toString().isNotEmpty)
+                                      Text(
+                                        board['description'],
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                size: 14,
+                                color: Color(0xFFE76F51),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _showCreateBoardDialog(String userId) {
+    final nameController = TextEditingController();
+    final descController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.add_rounded, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Koleksi Baru',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.grey.shade200, width: 1.5),
+              ),
+              child: TextField(
+                controller: nameController,
+                decoration: InputDecoration(
+                  hintText: 'Nama Koleksi',
+                  hintStyle: TextStyle(color: Colors.grey.shade400),
+                  prefixIcon: const Icon(Icons.collections_bookmark_rounded, color: Color(0xFFE76F51)),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.grey.shade200, width: 1.5),
+              ),
+              child: TextField(
+                controller: descController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Deskripsi (opsional)',
+                  hintStyle: TextStyle(color: Colors.grey.shade400),
+                  prefixIcon: const Padding(
+                    padding: EdgeInsets.only(bottom: 60),
+                    child: Icon(Icons.description_rounded, color: Color(0xFFF4A261)),
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.grey.shade600,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            child: const Text('Batal', style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: TextButton(
+              onPressed: () async {
+                if (nameController.text.trim().isEmpty) {
+                  if (!dialogContext.mounted) return;
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    const SnackBar(content: Text('Nama koleksi harus diisi')),
+                  );
+                  return;
+                }
+
+                try {
+                  await supabase.from('recipe_boards').insert({
+                    'user_id': userId,
+                    'name': nameController.text.trim(),
+                    'description': descController.text.trim(),
+                  });
+
+                  if (!dialogContext.mounted) return;
+                  Navigator.pop(dialogContext);
+                  
+                  if (!mounted) return;
+                  _showSnackBar('Koleksi berhasil dibuat!', isError: false);
+                  _showBoardSelector();
+                } catch (e) {
+                  if (!mounted) return;
+                  _showSnackBar('Error: $e', isError: true);
+                }
+              },
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+              child: const Text(
+                'Buat',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addToBoard(String boardId, String boardName) async {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // Check if already exists
+      final existing = await supabase
+          .from('board_recipes')
+          .select()
+          .eq('board_id', boardId)
+          .eq('recipe_id', widget.recipe['id'])
+          .maybeSingle();
+
+      if (existing != null) {
+        if (!mounted) return;
+        _showSnackBar('Resep sudah ada di koleksi ini', isError: true);
+        return;
+      }
+
+      await supabase.from('board_recipes').insert({
+        'board_id': boardId,
+        'recipe_id': widget.recipe['id'],
+      });
+
+      if (mounted) {
+        setState(() => _isFavorite = true);
+        _showSnackBar('Ditambahkan ke "$boardName"', isError: false);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar('Error: $e', isError: true);
+    }
+  }
+
+  void _showSnackBar(String message, {required bool isError}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+              color: Colors.white,
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: isError ? Colors.red.shade600 : Colors.green.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,16 +544,18 @@ class _RecipeCardState extends State<RecipeCard> {
       },
       onTapCancel: () => setState(() => _isPressed = false),
       child: AnimatedScale(
-        scale: _isPressed ? 0.97 : 1.0,
+        scale: _isPressed ? 0.98 : 1.0,
         duration: const Duration(milliseconds: 150),
         child: Container(
+          height: 140,
+          margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: _isPressed 
-                  ? const Color(0xFF2B6CB0).withValues(alpha: 0.3)
-                  : Colors.grey.shade200,
+              color: _isPressed
+                  ? const Color(0xFFE76F51).withValues(alpha: 0.4)
+                  : const Color(0xFFE76F51).withValues(alpha: 0.2),
               width: 1.5,
             ),
             boxShadow: [
@@ -74,259 +566,182 @@ class _RecipeCardState extends State<RecipeCard> {
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              // Gambar Resep - EXPANDED untuk mengisi ruang
-              Expanded(
-                flex: 3,
-                child: Stack(
-                  children: [
-                    // Gambar utama
-                    ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                      child: Container(
-                        width: double.infinity,
-                        color: Colors.grey.shade100,
-                        child: widget.recipe['image_url'] != null
-                            ? Image.network(
-                                widget.recipe['image_url'],
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                                height: double.infinity,
-                                errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return Center(
-                                    child: CircularProgressIndicator(
-                                      value: loadingProgress.expectedTotalBytes != null
-                                          ? loadingProgress.cumulativeBytesLoaded /
-                                              loadingProgress.expectedTotalBytes!
-                                          : null,
-                                      strokeWidth: 2,
-                                      color: const Color(0xFF2B6CB0),
-                                    ),
-                                  );
-                                },
-                              )
-                            : _buildPlaceholder(),
-                      ),
+              // Image Section
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      bottomLeft: Radius.circular(20),
                     ),
-                    
-                    // Gradient overlay di bawah
+                    child: Container(
+                      width: 130,
+                      height: double.infinity,
+                      color: Colors.grey.shade100,
+                      child: widget.recipe['image_url'] != null
+                          ? Image.network(
+                              widget.recipe['image_url'],
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+                            )
+                          : _buildPlaceholder(),
+                    ),
+                  ),
+                  // Rating badge
+                  if (widget.rating != null)
                     Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
+                      top: 8,
+                      left: 8,
                       child: Container(
-                        height: 60,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withValues(alpha: 0.4),
-                            ],
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
                           ),
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              blurRadius: 6,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.star_rounded, color: Colors.white, size: 12),
+                            const SizedBox(width: 3),
+                            Text(
+                              widget.rating!.toStringAsFixed(1),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                    
-                    // Rating badge
-                    if (widget.rating != null)
-                      Positioned(
-                        top: 10,
-                        right: 10,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.2),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.star_rounded, color: Colors.white, size: 14),
-                              const SizedBox(width: 4),
-                              Text(
-                                widget.rating!.toStringAsFixed(1),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                ],
+              ),
 
-                    // Judul resep di atas gambar
-                    Positioned(
-                      bottom: 10,
-                      left: 12,
-                      right: 12,
-                      child: Text(
+              // Content Section
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Title
+                      Text(
                         widget.recipe['title'] ?? 'Untitled Recipe',
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black54,
-                              blurRadius: 8,
-                            ),
-                          ],
+                          color: Color(0xFF264653),
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
-                ),
-              ),
+                      const SizedBox(height: 6),
 
-              // Info Section - TIDAK EXPANDED, menggunakan mainAxisSize
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // User info
-                    GestureDetector(
-                      onTap: userId != null
-                          ? () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ProfileScreen(userId: userId),
-                                ),
-                              )
-                          : null,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _getRoleBorderColor(userRole).withValues(alpha: 0.2),
-                            width: 1,
-                          ),
-                        ),
+                      // User info
+                      GestureDetector(
+                        onTap: userId != null
+                            ? () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ProfileScreen(userId: userId),
+                                  ),
+                                )
+                            : null,
                         child: Row(
                           children: [
                             Container(
-                              width: 26,
-                              height: 26,
+                              width: 20,
+                              height: 20,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 gradient: LinearGradient(
                                   colors: _getRoleGradient(userRole),
                                 ),
-                                border: Border.all(color: Colors.white, width: 2),
                               ),
                               child: ClipOval(
                                 child: avatarUrl != null
                                     ? Image.network(
                                         avatarUrl,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) => Icon(
-                                          Icons.person_rounded,
-                                          size: 14,
-                                          color: Colors.white,
-                                        ),
+                                        errorBuilder: (context, error, stackTrace) =>
+                                            const Icon(Icons.person_rounded, size: 12, color: Colors.white),
                                       )
-                                    : Icon(Icons.person_rounded, size: 14, color: Colors.white),
+                                    : const Icon(Icons.person_rounded, size: 12, color: Colors.white),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    username,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF2D3748),
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (userRole != 'user')
-                                    Container(
-                                      margin: const EdgeInsets.only(top: 2),
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: _getRoleGradient(userRole),
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        _getRoleLabel(userRole),
-                                        style: const TextStyle(
-                                          fontSize: 8,
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                ],
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                username,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey.shade700,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Colors.grey.shade400),
                           ],
                         ),
                       ),
-                    ),
 
-                    const SizedBox(height: 8),
+                      const Spacer(),
 
-                    // Category & Tags
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        _buildCategoryChip(context, categoryId, categoryName),
-                        ...tags.take(2).map((tag) => _buildTagChip(context, tag)),
-                      ],
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    // Time & Calories
-                    Row(
-                      children: [
-                        _buildInfoBadge(
-                          Icons.access_time_rounded,
-                          '${widget.recipe['cooking_time'] ?? 0}m',
-                          const Color(0xFF2B6CB0),
-                        ),
-                        const SizedBox(width: 8),
-                        _buildInfoBadge(
-                          Icons.local_fire_department_rounded,
-                          widget.recipe['calories'] != null
-                              ? '${widget.recipe['calories']} kcal'
-                              : 'N/A',
-                          const Color(0xFFFF6B35),
-                        ),
-                      ],
-                    ),
-                  ],
+                      // Bottom row: Category/Tags + Actions
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Wrap(
+                              spacing: 4,
+                              runSpacing: 4,
+                              children: [
+                                _buildCategoryChip(context, categoryId, categoryName),
+                                if (tags.isNotEmpty) _buildTagChip(context, tags.first),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Favorite button
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: _isCheckingFavorite ? null : _showBoardSelector,
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  gradient: _isFavorite
+                                      ? const LinearGradient(
+                                          colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
+                                        )
+                                      : null,
+                                  color: _isFavorite ? null : Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  _isFavorite ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                                  color: _isFavorite ? Colors.white : Colors.grey.shade600,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -338,13 +753,11 @@ class _RecipeCardState extends State<RecipeCard> {
 
   Widget _buildPlaceholder() {
     return Container(
-      width: double.infinity,
-      height: double.infinity,
       color: Colors.grey.shade200,
       child: Center(
         child: Icon(
           Icons.restaurant_rounded,
-          size: 50,
+          size: 40,
           color: Colors.grey.shade400,
         ),
       ),
@@ -365,25 +778,20 @@ class _RecipeCardState extends State<RecipeCard> {
               )
           : null,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: const Color(0xFF2B6CB0),
-          borderRadius: BorderRadius.circular(8),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF264653), Color(0xFF2A9D8F)],
+          ),
+          borderRadius: BorderRadius.circular(6),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.category_rounded, size: 10, color: Colors.white),
-            const SizedBox(width: 4),
-            Text(
-              categoryName,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+        child: Text(
+          categoryName,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 9,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );
@@ -406,50 +814,23 @@ class _RecipeCardState extends State<RecipeCard> {
               )
           : null,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: const Color(0xFFFF6B35).withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(8),
+          color: const Color(0xFFE9C46A).withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: const Color(0xFFFF6B35).withValues(alpha: 0.3),
+            color: const Color(0xFFE9C46A),
+            width: 1,
           ),
         ),
         child: Text(
           '#$tagName',
           style: const TextStyle(
-            color: Color(0xFFFF6B35),
-            fontSize: 10,
+            color: Color(0xFF264653),
+            fontSize: 9,
             fontWeight: FontWeight.bold,
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildInfoBadge(IconData icon, String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: color.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 11, color: color),
-          const SizedBox(width: 4),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 10,
-              color: color,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -462,28 +843,6 @@ class _RecipeCardState extends State<RecipeCard> {
         return [const Color(0xFF6C63FF), const Color(0xFF9F8FFF)];
       default:
         return [Colors.grey.shade400, Colors.grey.shade500];
-    }
-  }
-
-  Color _getRoleBorderColor(String role) {
-    switch (role) {
-      case 'admin':
-        return const Color(0xFFFFD700);
-      case 'premium':
-        return const Color(0xFF6C63FF);
-      default:
-        return Colors.grey.shade400;
-    }
-  }
-
-  String _getRoleLabel(String role) {
-    switch (role) {
-      case 'admin':
-        return 'ADMIN';
-      case 'premium':
-        return 'PREMIUM';
-      default:
-        return '';
     }
   }
 }
