@@ -23,7 +23,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   final Map<String, double> _recipeRatings = {};
   RealtimeChannel? _bannedChannel;
   
-  // User stats
   int _myRecipesCount = 0;
   int _bookmarksCount = 0;
   int _followersCount = 0;
@@ -32,32 +31,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
-  // Daily motivations (hardcoded)
   final List<Map<String, String>> _dailyQuotes = [
-    {
-      'quote': 'Masakan terbaik dibuat dengan cinta ❤️',
-      'author': 'Chef Julia Child'
-    },
-    {
-      'quote': 'Memasak adalah seni yang bisa dinikmati semua orang 🎨',
-      'author': 'Gordon Ramsay'
-    },
-    {
-      'quote': 'Resep adalah cerita yang berakhir dengan makanan lezat 📖',
-      'author': 'Pat Conroy'
-    },
-    {
-      'quote': 'Kebahagiaan dimulai dari dapur 🍳',
-      'author': 'Traditional Wisdom'
-    },
-    {
-      'quote': 'Setiap chef adalah seniman dengan palet rasa 🎭',
-      'author': 'Anonymous'
-    },
-    {
-      'quote': 'Masak dengan hati, sajikan dengan senyuman 😊',
-      'author': 'Savora Community'
-    },
+    {'quote': 'Masakan terbaik dibuat dengan cinta ❤️', 'author': 'Chef Julia Child'},
+    {'quote': 'Memasak adalah seni yang bisa dinikmati semua orang 🎨', 'author': 'Gordon Ramsay'},
+    {'quote': 'Resep adalah cerita yang berakhir dengan makanan lezat 📖', 'author': 'Pat Conroy'},
+    {'quote': 'Kebahagiaan dimulai dari dapur 🍳', 'author': 'Traditional Wisdom'},
+    {'quote': 'Setiap chef adalah seniman dengan palet rasa 🎭', 'author': 'Anonymous'},
+    {'quote': 'Masak dengan hati, sajikan dengan senyuman 😊', 'author': 'Savora Community'},
   ];
 
   @override
@@ -164,13 +144,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     }
   }
 
-  // ===== MEMUAT STATISTIK PENGGUNA =====
-  // Ambil jumlah resep, bookmark, dan followers dari kolom yang sudah dihitung di profiles
   Future<void> _loadUserStats() async {
     try {
       final userId = supabase.auth.currentUser?.id;
       if (userId != null) {
-        // Ambil data statistik dari kolom yang sudah dihitung di tabel profiles
         final response = await supabase
             .from('profiles')
             .select('total_recipes, total_bookmarks, total_followers')
@@ -237,7 +214,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   String _getDailyQuote() {
-    // Get day of year to select quote
     final now = DateTime.now();
     final dayOfYear = now.difference(DateTime(now.year, 1, 1)).inDays;
     final index = dayOfYear % _dailyQuotes.length;
@@ -283,17 +259,15 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  const Color(0xFF2B6CB0).withValues(alpha: 0.1),
-                  const Color(0xFFFF6B35).withValues(alpha: 0.1),
+                  const Color(0xFFE76F51).withValues(alpha: 0.2),
+                  const Color(0xFFF4A261).withValues(alpha: 0.2),
                 ],
               ),
               shape: BoxShape.circle,
             ),
             child: Center(
               child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  const Color(0xFF2B6CB0),
-                ),
+                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFE76F51)),
                 strokeWidth: 3,
               ),
             ),
@@ -318,28 +292,28 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       child: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // Welcome Card dengan Personal Stats & Daily Quote
+          // Welcome Card
           SliverToBoxAdapter(
             child: SlideTransition(
               position: _slideAnimation,
               child: Container(
                 margin: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
+                  gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      const Color(0xFF2B6CB0),
-                      const Color(0xFF3182CE),
-                      Colors.blue.shade400,
-                      Colors.orange.shade400,
-                      const Color(0xFFFF6B35),
+                      Color(0xFF264653),
+                      Color(0xFF2A9D8F),
+                      Color(0xFFE9C46A),
+                      Color(0xFFF4A261),
+                      Color(0xFFE76F51),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF2B6CB0).withValues(alpha: 0.3),
+                      color: const Color(0xFFE76F51).withValues(alpha: 0.3),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -347,7 +321,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 ),
                 child: Column(
                   children: [
-                    // Welcome Section
                     Padding(
                       padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
                       child: Column(
@@ -358,7 +331,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             children: [
                               Text(
                                 'Halo, ${_username ?? 'Foodie'}! 👋',
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
@@ -380,7 +353,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                           ),
                           const SizedBox(height: 20),
                           
-                          // User Stats
                           Row(
                             children: [
                               Expanded(
@@ -412,7 +384,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       ),
                     ),
                     
-                    // Daily Quote Section
                     Container(
                       margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                       padding: const EdgeInsets.all(16),
@@ -429,7 +400,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                         children: [
                           Row(
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.format_quote_rounded,
                                 color: Colors.white,
                                 size: 20,
@@ -449,7 +420,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                           const SizedBox(height: 10),
                           Text(
                             _getDailyQuote(),
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 14,
                               fontStyle: FontStyle.italic,
                               color: Colors.white,
@@ -485,11 +456,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     width: 4,
                     height: 24,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color(0xFF2B6CB0),
-                          const Color(0xFFFF6B35),
-                        ],
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                       ),
@@ -497,13 +465,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Expanded(
+                  const Expanded(
                     child: Text(
                       'Resep Terpopuler',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: const Color(0xFF2D3748),
+                        color: Color(0xFF264653),
                       ),
                     ),
                   ),
@@ -512,30 +480,30 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          const Color(0xFF2B6CB0).withValues(alpha: 0.1),
-                          const Color(0xFFFF6B35).withValues(alpha: 0.1),
+                          const Color(0xFFE76F51).withValues(alpha: 0.1),
+                          const Color(0xFFF4A261).withValues(alpha: 0.1),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: const Color(0xFF2B6CB0).withValues(alpha: 0.3),
+                        color: const Color(0xFFE76F51).withValues(alpha: 0.3),
                         width: 1,
                       ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.local_fire_department_rounded,
                           size: 16,
-                          color: const Color(0xFFFF6B35),
+                          color: Color(0xFFE76F51),
                         ),
                         const SizedBox(width: 4),
                         Text(
                           '${_popularRecipes.length}',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 13,
-                            color: const Color(0xFF2B6CB0),
+                            color: Color(0xFFE76F51),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -547,16 +515,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             ),
           ),
 
-          // Recipe Grid
+          // Recipe List
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.55,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
+            sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
                   final recipe = _popularRecipes[index];
@@ -657,23 +619,23 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          const Color(0xFF2B6CB0).withValues(alpha: 0.15),
-                          const Color(0xFFFF6B35).withValues(alpha: 0.15),
+                          const Color(0xFFE76F51).withValues(alpha: 0.15),
+                          const Color(0xFFF4A261).withValues(alpha: 0.15),
                         ],
                       ),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF2B6CB0).withValues(alpha: 0.2),
+                          color: const Color(0xFFE76F51).withValues(alpha: 0.2),
                           blurRadius: 30,
                           spreadRadius: 10,
                         ),
                       ],
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.restaurant_menu_rounded,
                       size: 70,
-                      color: const Color(0xFF2B6CB0),
+                      color: Color(0xFFE76F51),
                     ),
                   ),
                 );
@@ -717,19 +679,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 borderRadius: BorderRadius.circular(16),
                 child: Ink(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
+                    gradient: const LinearGradient(
                       colors: [
-                        const Color(0xFF2B6CB0),
-                        const Color(0xFF3182CE),
-                        Colors.blue.shade400,
-                        Colors.orange.shade400,
-                        const Color(0xFFFF6B35),
+                        Color(0xFFE76F51),
+                        Color(0xFFF4A261),
+                        Color(0xFFE9C46A),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF2B6CB0).withValues(alpha: 0.4),
+                        color: const Color(0xFFE76F51).withValues(alpha: 0.4),
                         blurRadius: 20,
                         offset: const Offset(0, 10),
                       ),
@@ -740,7 +700,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       horizontal: 32,
                       vertical: 16,
                     ),
-                    child: Row(
+                    child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
@@ -748,7 +708,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                           color: Colors.white,
                           size: 24,
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12),
                         Text(
                           'Buat Resep Pertama',
                           style: TextStyle(
@@ -769,4 +729,4 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       ),
     );
   }
-} 
+}
