@@ -280,7 +280,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       showModalBottomSheet(
         context: context,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         builder: (context) => _buildFollowListSheet('Pengikut', List<Map<String, dynamic>>.from(response), true),
       );
@@ -304,7 +304,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       showModalBottomSheet(
         context: context,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         builder: (context) => _buildFollowListSheet('Mengikuti', List<Map<String, dynamic>>.from(response), false),
       );
@@ -320,16 +320,32 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       return Container(
         padding: const EdgeInsets.all(32),
         child: Center(
-          child: Text(
-            isFollowers ? 'Belum ada pengikut' : 'Belum mengikuti siapa pun',
-            style: TextStyle(color: Colors.grey.shade600),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 40),
+              Icon(Icons.people_outline, size: 64, color: Colors.grey.shade300),
+              const SizedBox(height: 16),
+              Text(
+                isFollowers ? 'Belum ada pengikut' : 'Belum mengikuti siapa pun',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            ],
           ),
         ),
       );
     }
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -341,16 +357,16 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Text(
             title,
             style: const TextStyle(
-              fontSize: 18,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF2D3748),
+              color: Color(0xFF264653),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Expanded(
             child: ListView.builder(
               shrinkWrap: true,
@@ -362,50 +378,105 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 final isBanned = profile['is_banned'] == true;
                 final bannedReason = profile['banned_reason'] ?? 'Tidak disebutkan';
 
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: isBanned ? Colors.red.shade200 : Colors.grey.shade300,
-                    backgroundImage: profile['avatar_url'] != null && !isBanned
-                        ? NetworkImage(profile['avatar_url'])
-                        : null,
-                    child: profile['avatar_url'] == null || isBanned
-                        ? Icon(
-                            isBanned ? Icons.block : Icons.person,
-                            color: isBanned ? Colors.red.shade700 : Colors.grey.shade600,
-                          )
-                        : null,
-                  ),
-                  title: Text(
-                    profile['username'] ?? 'Unknown',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: isBanned ? Colors.red.shade700 : Colors.black,
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: isBanned ? Colors.red.shade50 : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isBanned
+                          ? Colors.red.shade200
+                          : const Color(0xFFE76F51).withValues(alpha: 0.2),
+                      width: 1.5,
                     ),
                   ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (profile['full_name'] != null) Text(profile['full_name']),
-                      if (isBanned)
-                        Text(
-                          'Dibanned: $bannedReason',
-                          style: const TextStyle(color: Colors.red, fontSize: 12),
-                        ),
-                    ],
-                  ),
-                  onTap: isBanned
-                      ? null
-                      : () {
-                          Navigator.pop(context);
-                          if (userId != _currentUserId) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ProfileScreen(userId: userId),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    leading: Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: isBanned
+                            ? LinearGradient(colors: [Colors.red.shade300, Colors.red.shade400])
+                            : const LinearGradient(
+                                colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
                               ),
-                            );
-                          }
-                        },
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: CircleAvatar(
+                          backgroundColor: Colors.white,
+                          backgroundImage: profile['avatar_url'] != null && !isBanned
+                              ? NetworkImage(profile['avatar_url'])
+                              : null,
+                          child: profile['avatar_url'] == null || isBanned
+                              ? Icon(
+                                  isBanned ? Icons.block : Icons.person,
+                                  color: isBanned ? Colors.red.shade700 : Colors.grey.shade400,
+                                )
+                              : null,
+                        ),
+                      ),
+                    ),
+                    title: Text(
+                      profile['username'] ?? 'Unknown',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isBanned ? Colors.red.shade700 : const Color(0xFF264653),
+                      ),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (profile['full_name'] != null)
+                          Text(
+                            profile['full_name'],
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        if (isBanned)
+                          Container(
+                            margin: const EdgeInsets.only(top: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade100,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'Dibanned: $bannedReason',
+                              style: TextStyle(
+                                color: Colors.red.shade700,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    trailing: isBanned
+                        ? null
+                        : Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 16,
+                            color: const Color(0xFFE76F51),
+                          ),
+                    onTap: isBanned
+                        ? null
+                        : () {
+                            Navigator.pop(context);
+                            if (userId != _currentUserId) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ProfileScreen(userId: userId),
+                                ),
+                              );
+                            }
+                          },
+                  ),
                 );
               },
             ),
@@ -416,6 +487,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   }
 
   void _showSnackBar(String message, {required bool isError}) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -470,31 +542,32 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 80,
-            height: 80,
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.blue.shade100,
-                  Colors.orange.shade100,
-                ],
+              gradient: const LinearGradient(
+                colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
               ),
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFE76F51).withValues(alpha: 0.4),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
-            child: Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade600),
-                strokeWidth: 3,
-              ),
+            child: const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              strokeWidth: 3,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           Text(
             'Memuat profil...',
             style: TextStyle(
               color: Colors.grey.shade700,
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -506,22 +579,20 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     return SliverToBoxAdapter(
       child: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: _userRole == 'admin'
-                ? [const Color(0xFFFFD700), const Color(0xFFFFB300), const Color(0xFFFF8F00)]
-                : [
-                    const Color(0xFF2B6CB0),
-                    const Color(0xFF3182CE),
-                    Colors.blue.shade400,
-                    Colors.orange.shade400,
-                    const Color(0xFFFF6B35),
-                  ],
+            colors: [
+              Color(0xFF264653),
+              Color(0xFF2A9D8F),
+              Color(0xFFE9C46A),
+              Color(0xFFF4A261),
+              Color(0xFFE76F51),
+            ],
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.blue.withValues(alpha: 0.3),
+              color: const Color(0xFFE76F51).withValues(alpha: 0.3),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -533,24 +604,35 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 30),
             child: Column(
               children: [
+                // Avatar
                 Stack(
                   children: [
                     Container(
-                      width: 120,
-                      height: 120,
+                      width: 110,
+                      height: 110,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 4),
+                        gradient: LinearGradient(
+                          colors: _getRoleGradient(_userRole),
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
-                            blurRadius: 15,
-                            offset: const Offset(0, 5),
+                            color: Colors.black.withValues(alpha: 0.3),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
                           ),
                         ],
                       ),
+                    ),
+                    Container(
+                      width: 110,
+                      height: 110,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 3),
+                      ),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(60),
+                        borderRadius: BorderRadius.circular(55),
                         child: _avatarUrl != null
                             ? Image.network(
                                 _avatarUrl!,
@@ -584,33 +666,67 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                           child: Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Colors.blue.shade400, Colors.blue.shade600],
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
                               ),
                               shape: BoxShape.circle,
                               border: Border.all(color: Colors.white, width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.2),
+                                  blurRadius: 8,
+                                ),
+                              ],
                             ),
                             child: const Icon(
                               Icons.camera_alt_rounded,
                               color: Colors.white,
-                              size: 18,
+                              size: 16,
                             ),
+                          ),
+                        ),
+                      ),
+                    if (_userRole == 'admin')
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                            ),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.2),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.verified_rounded,
+                            color: Colors.white,
+                            size: 16,
                           ),
                         ),
                       ),
                   ],
                 ),
                 const SizedBox(height: 16),
+
+                // Username & Name
                 Text(
                   _usernameController.text.isEmpty ? 'Unknown' : _usernameController.text,
                   style: const TextStyle(
-                    fontSize: 24,
+                    fontSize: 26,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
                 ),
                 if (_fullNameController.text.isNotEmpty) ...[
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
                     _fullNameController.text,
                     style: TextStyle(
@@ -620,10 +736,16 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   ),
                 ],
                 const SizedBox(height: 12),
+
+                // Role Badge
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.25),
+                    gradient: LinearGradient(
+                      colors: _getRoleGradient(_userRole)
+                          .map((c) => c.withValues(alpha: 0.3))
+                          .toList(),
+                    ),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.5),
@@ -644,62 +766,119 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        _userRole == 'admin'
-                            ? 'ADMIN'
-                            : _isPremium
-                                ? 'SAVORA CHEF'
-                                : 'PENGGUNA',
+                        _getRoleLabel(_userRole),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
+                          letterSpacing: 0.5,
                         ),
                       ),
                     ],
                   ),
                 ),
+
+                // Bio
+                if (_bioController.text.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Text(
+                      _bioController.text,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.95),
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 20),
+
+                // Stats
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _buildStatItem(_userRecipes.length.toString(), 'Resep', Icons.restaurant_rounded),
+                    _buildStatItem(
+                      'Resep',
+                      _userRecipes.length.toString(),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 40,
+                      color: Colors.white.withValues(alpha: 0.3),
+                    ),
                     GestureDetector(
                       onTap: _showFollowersList,
-                      child: _buildStatItem(_followerCount.toString(), 'Pengikut', Icons.people_rounded),
+                      child: _buildStatItem(
+                        'Pengikut',
+                        _followerCount.toString(),
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 40,
+                      color: Colors.white.withValues(alpha: 0.3),
                     ),
                     GestureDetector(
                       onTap: _showFollowingList,
-                      child: _buildStatItem(_followingCount.toString(), 'Mengikuti', Icons.person_add_rounded),
+                      child: _buildStatItem(
+                        'Mengikuti',
+                        _followingCount.toString(),
+                      ),
                     ),
                   ],
                 ),
+
+                // Action Button
                 if (!_isOwnProfile) ...[
                   const SizedBox(height: 20),
                   Container(
                     width: double.infinity,
-                    height: 48,
+                    height: 52,
                     decoration: BoxDecoration(
                       gradient: _isFollowing
                           ? null
-                          : LinearGradient(
-                              colors: [Colors.blue.shade400, Colors.blue.shade600],
+                          : const LinearGradient(
+                              colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
                             ),
-                      color: _isFollowing ? Colors.white.withValues(alpha: 0.3) : null,
-                      borderRadius: BorderRadius.circular(12),
+                      color: _isFollowing ? Colors.white.withValues(alpha: 0.2) : null,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.3),
+                        width: 1.5,
+                      ),
+                      boxShadow: _isFollowing
+                          ? null
+                          : [
+                              BoxShadow(
+                                color: const Color(0xFFE76F51).withValues(alpha: 0.4),
+                                blurRadius: 12,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
                     ),
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
                         onTap: _isFollowLoading ? null : _toggleFollow,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                         child: Center(
                           child: _isFollowLoading
                               ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
+                                  width: 24,
+                                  height: 24,
                                   child: CircularProgressIndicator(
-                                    strokeWidth: 2,
+                                    strokeWidth: 2.5,
                                     color: Colors.white,
                                   ),
                                 )
@@ -709,6 +888,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                     Icon(
                                       _isFollowing ? Icons.person_remove_rounded : Icons.person_add_rounded,
                                       color: Colors.white,
+                                      size: 20,
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
@@ -743,11 +923,13 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           if (_isOwnProfile && _userRole == 'admin') ...[
             Container(
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFFFFD700), Color(0xFFFFB300)]),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                ),
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.orange.withValues(alpha: 0.3),
+                    color: const Color(0xFFFFD700).withValues(alpha: 0.4),
                     blurRadius: 15,
                     offset: const Offset(0, 8),
                   ),
@@ -775,21 +957,32 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                             color: Colors.white.withValues(alpha: 0.25),
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: const Icon(Icons.dashboard_customize_rounded, color: Colors.white, size: 28),
+                          child: const Icon(
+                            Icons.dashboard_customize_rounded,
+                            color: Colors.white,
+                            size: 28,
+                          ),
                         ),
                         const SizedBox(width: 16),
-                        Expanded(
+                        const Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Dashboard Admin',
-                                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                              const SizedBox(height: 4),
+                              SizedBox(height: 4),
                               Text(
                                 'Kelola sistem dan pengguna',
-                                style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 13),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                ),
                               ),
                             ],
                           ),
@@ -800,7 +993,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                             color: Colors.white.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 16),
+                          child: const Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            color: Colors.white,
+                            size: 16,
+                          ),
                         ),
                       ],
                     ),
@@ -810,50 +1007,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             ),
             const SizedBox(height: 20),
           ],
-          
-          // Bio Display (jika ada dan bukan own profile)
-          if (_bioController.text.isNotEmpty && !_isOwnProfile) ...[
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.blue.shade100, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.blue.withValues(alpha: 0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Bio',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2D3748),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _bioController.text,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade700,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-          
-          // Edit Profile Form (jika own profile)
+
+          // Edit Profile Form
           if (_isOwnProfile) ...[
             Row(
               children: [
@@ -861,12 +1016,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   width: 4,
                   height: 24,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        const Color(0xFF2B6CB0),
-                        Colors.blue.shade400,
-                        Colors.orange.shade400,
-                      ],
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
                     ),
                     borderRadius: BorderRadius.circular(2),
                   ),
@@ -877,7 +1030,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF2D3748),
+                    color: Color(0xFF264653),
                   ),
                 ),
               ],
@@ -887,10 +1040,13 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.blue.shade100, width: 2),
+                border: Border.all(
+                  color: const Color(0xFFE76F51).withValues(alpha: 0.2),
+                  width: 2,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.blue.withValues(alpha: 0.1),
+                    color: const Color(0xFFE76F51).withValues(alpha: 0.1),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -904,21 +1060,21 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     controller: _usernameController,
                     label: 'Username',
                     icon: Icons.alternate_email_rounded,
-                    iconColor: Colors.blue,
+                    iconColor: const Color(0xFFE76F51),
                   ),
                   const SizedBox(height: 16),
                   _buildModernTextField(
                     controller: _fullNameController,
                     label: 'Nama Lengkap',
                     icon: Icons.person_outline_rounded,
-                    iconColor: Colors.green,
+                    iconColor: const Color(0xFF2A9D8F),
                   ),
                   const SizedBox(height: 16),
                   _buildModernTextField(
                     controller: _bioController,
                     label: 'Bio',
                     icon: Icons.edit_note_rounded,
-                    iconColor: Colors.purple,
+                    iconColor: const Color(0xFFF4A261),
                     maxLines: 4,
                   ),
                 ],
@@ -928,17 +1084,13 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             Container(
               height: 56,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFF2B6CB0),
-                    Colors.blue.shade400,
-                    Colors.orange.shade400,
-                  ],
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
                 ),
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.blue.withValues(alpha: 0.4),
+                    color: const Color(0xFFE76F51).withValues(alpha: 0.4),
                     blurRadius: 15,
                     offset: const Offset(0, 8),
                   ),
@@ -980,7 +1132,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             ),
             const SizedBox(height: 24),
           ],
-          
+
           // Recipes Section Header
           Row(
             children: [
@@ -988,88 +1140,118 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 width: 4,
                 height: 24,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF2B6CB0),
-                      Colors.blue.shade400,
-                      Colors.orange.shade400,
-                    ],
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
                   ),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               const SizedBox(width: 12),
-              Text(
-                'Resep (${_userRecipes.length})',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF2D3748),
+              Expanded(
+                child: Text(
+                  _isOwnProfile ? 'Resep Saya' : 'Resep',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF264653),
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFFE76F51).withValues(alpha: 0.1),
+                      const Color(0xFFF4A261).withValues(alpha: 0.1),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFFE76F51).withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  '${_userRecipes.length}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFFE76F51),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          
-          // Recipes Grid or Empty State
-          _userRecipes.isEmpty
-              ? Container(
-                  padding: const EdgeInsets.all(48),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.grey.shade100,
-                        Colors.grey.shade50,
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Icon(Icons.restaurant_menu_rounded, size: 60, color: Colors.grey.shade300),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Belum ada resep',
-                          style: TextStyle(fontSize: 16, color: Colors.grey.shade500, fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _isOwnProfile ? 'Mulai berbagi resep favorit Anda!' : 'Pengguna belum membuat resep',
-                          style: TextStyle(fontSize: 13, color: Colors.grey.shade400),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.55,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemCount: _userRecipes.length,
-                  itemBuilder: (context, index) {
-                    final recipe = _userRecipes[index];
-                    return RecipeCard(
-                      recipe: recipe,
-                      rating: _recipeRatings[recipe['id']],
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => DetailScreen(recipeId: recipe['id'].toString()),
-                          ),
-                        ).then((_) {
-                          if (mounted) _loadUserRecipes();
-                        });
-                      },
-                    );
-                  },
+
+          // Recipes List or Empty State
+          if (_userRecipes.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(48),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.grey.shade100,
+                    Colors.grey.shade50,
+                  ],
                 ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.restaurant_menu_rounded,
+                      size: 64,
+                      color: Colors.grey.shade300,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _isOwnProfile ? 'Belum ada resep' : 'Pengguna ini belum memiliki resep',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _isOwnProfile
+                          ? 'Mulai berbagi resep favorit Anda!'
+                          : 'Tunggu hingga mereka membagikan kreasi kuliner',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade400,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ..._userRecipes.map((recipe) {
+              return RecipeCard(
+                recipe: recipe,
+                rating: _recipeRatings[recipe['id']],
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DetailScreen(
+                        recipeId: recipe['id'].toString(),
+                      ),
+                    ),
+                  ).then((_) {
+                    if (mounted) _loadUserRecipes();
+                  });
+                },
+              );
+            }),
           const SizedBox(height: 100),
         ]),
       ),
@@ -1080,31 +1262,33 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            Colors.blue.shade300,
-            Colors.purple.shade400,
-          ],
+          colors: _getRoleGradient(_userRole),
         ),
       ),
-      child: const Icon(Icons.person_rounded, size: 60, color: Colors.white),
+      child: const Icon(Icons.person_rounded, size: 50, color: Colors.white),
     );
   }
 
-  Widget _buildStatItem(String value, String label, IconData icon) {
+  Widget _buildStatItem(String label, String value) {
     return Column(
       children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(12),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
-          child: Icon(icon, color: Colors.white, size: 24),
         ),
-        const SizedBox(height: 8),
-        Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
         const SizedBox(height: 4),
-        Text(label, style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.9))),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            color: Colors.white.withValues(alpha: 0.9),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ],
     );
   }
@@ -1120,34 +1304,75 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Colors.blue.shade50,
-            Colors.orange.shade50,
+            iconColor.withValues(alpha: 0.05),
+            iconColor.withValues(alpha: 0.1),
           ],
         ),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.blue.shade100, width: 1.5),
+        border: Border.all(
+          color: iconColor.withValues(alpha: 0.2),
+          width: 1.5,
+        ),
       ),
       child: TextField(
         controller: controller,
         maxLines: maxLines,
-        style: TextStyle(fontSize: 15, color: Colors.grey.shade800, fontWeight: FontWeight.w500),
+        style: TextStyle(
+          fontSize: 15,
+          color: Colors.grey.shade800,
+          fontWeight: FontWeight.w500,
+        ),
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+          labelStyle: TextStyle(
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w500,
+          ),
           prefixIcon: Padding(
             padding: EdgeInsets.only(top: maxLines > 1 ? 12 : 0),
             child: Icon(icon, color: iconColor, size: 22),
           ),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(color: iconColor, width: 2),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
           alignLabelWithHint: maxLines > 1,
         ),
       ),
     );
+  }
+
+  List<Color> _getRoleGradient(String role) {
+    switch (role) {
+      case 'admin':
+        return [const Color(0xFFFFD700), const Color(0xFFFFA500)];
+      case 'premium':
+        return [const Color(0xFF6C63FF), const Color(0xFF9F8FFF)];
+      default:
+        return [Colors.grey.shade400, Colors.grey.shade500];
+    }
+  }
+
+  String _getRoleLabel(String role) {
+    switch (role) {
+      case 'admin':
+        return '👑 ADMIN';
+      case 'premium':
+        return '⭐ PREMIUM';
+      default:
+        return '👤 USER';
+    }
   }
 }

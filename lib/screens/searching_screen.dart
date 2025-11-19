@@ -5,11 +5,6 @@ import '../widgets/custom_bottom_nav.dart';
 import '../widgets/recipe_card.dart';
 import 'detail_screen.dart';
 
-/// Enhanced SearchingScreen dengan fitur:
-/// 1. Filter berdasarkan category dan tags (clickable)
-/// 2. Sorting (rating tertinggi, terbaru, terpopuler)
-/// 3. Toggle untuk menampilkan resep dari user yang difollow saja
-/// 4. Animasi loading seperti ProfileScreen
 class SearchingScreen extends StatefulWidget {
   final int? initialCategoryId;
   final String? initialCategoryName;
@@ -31,7 +26,7 @@ class SearchingScreen extends StatefulWidget {
 class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   List<Map<String, dynamic>> _searchResults = [];
-  final Map<String, double> _recipeRatings = {}; // Cache rating
+  final Map<String, double> _recipeRatings = {};
   bool _isLoading = false;
   String _lastSearchQuery = '';
   String? _userAvatarUrl;
@@ -41,7 +36,7 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
   String? _selectedCategoryName;
   int? _selectedTagId;
   String? _selectedTagName;
-  String _sortBy = 'popular'; // popular, newest, rating
+  String _sortBy = 'popular';
   bool _followedUsersOnly = false;
 
   // Available categories & tags
@@ -57,15 +52,13 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
   void initState() {
     super.initState();
     
-    // Set initial filters dari parameter
     _selectedCategoryId = widget.initialCategoryId;
     _selectedCategoryName = widget.initialCategoryName;
     _selectedTagId = widget.initialTagId;
     _selectedTagName = widget.initialTagName;
 
-    // Setup animation
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
     _fadeAnimation = CurvedAnimation(
@@ -84,7 +77,6 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
     _loadCategories();
     _loadPopularTags();
     
-    // Auto search jika ada initial filter
     if (_selectedCategoryId != null || _selectedTagId != null) {
       _searchRecipes('');
     }
@@ -97,7 +89,6 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
     super.dispose();
   }
 
-  /// Memuat avatar user yang sedang login
   Future<void> _loadUserAvatar() async {
     try {
       final userId = supabase.auth.currentUser?.id;
@@ -117,7 +108,6 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
     }
   }
 
-  /// Memuat daftar kategori
   Future<void> _loadCategories() async {
     try {
       final response = await supabase
@@ -133,7 +123,6 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
     }
   }
 
-  /// Memuat popular tags dari view
   Future<void> _loadPopularTags() async {
     try {
       final response = await supabase
@@ -149,7 +138,6 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
     }
   }
 
-  /// Fungsi utama untuk mencari resep dengan berbagai filter
   Future<void> _searchRecipes(String query) async {
     setState(() {
       _isLoading = true;
@@ -159,7 +147,6 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
     try {
       final userId = supabase.auth.currentUser?.id;
       
-      // Build query dengan select yang include tags
       var queryBuilder = supabase
           .from('recipes')
           .select('''
@@ -170,20 +157,16 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
           ''')
           .eq('status', 'approved');
 
-      // Filter berdasarkan search text
       if (_lastSearchQuery.isNotEmpty) {
         final safeQuery = _lastSearchQuery.replaceAll('%', '\\%').replaceAll('_', '\\_');
         queryBuilder = queryBuilder.ilike('title', '%$safeQuery%');
       }
 
-      // Filter berdasarkan category
       if (_selectedCategoryId != null) {
         queryBuilder = queryBuilder.eq('category_id', _selectedCategoryId!);
       }
 
-      // Filter berdasarkan followed users
       if (_followedUsersOnly && userId != null) {
-        // Ambil daftar user yang difollow
         final followedResponse = await supabase
             .from('follows')
             .select('following_id')
@@ -196,7 +179,6 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
         if (followedIds.isNotEmpty) {
           queryBuilder = queryBuilder.filter('user_id', 'in', '(${followedIds.join(',')})');
         } else {
-          // Jika tidak ada yang difollow, return empty
           if (mounted) {
             setState(() {
               _searchResults = [];
@@ -207,14 +189,12 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
         }
       }
 
-      // Sorting - kita perlu execute query dengan order dan limit
       final dynamic response;
       switch (_sortBy) {
         case 'newest':
           response = await queryBuilder.order('created_at', ascending: false).limit(50);
           break;
         case 'rating':
-          // Sort by rating akan dilakukan di client side karena butuh join
           response = await queryBuilder.order('created_at', ascending: false).limit(50);
           break;
         case 'popular':
@@ -226,7 +206,6 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
 
       var recipes = List<Map<String, dynamic>>.from(response);
 
-      // Filter by tag di client side (karena many-to-many)
       if (_selectedTagId != null) {
         recipes = recipes.where((recipe) {
           final recipeTags = recipe['recipe_tags'] as List<dynamic>?;
@@ -235,7 +214,6 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
         }).toList();
       }
 
-      // Load ratings untuk semua resep
       for (var recipe in recipes) {
         final ratingResponse = await supabase
             .from('recipe_ratings')
@@ -248,7 +226,6 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
         }
       }
 
-      // Sort by rating jika dipilih
       if (_sortBy == 'rating') {
         recipes.sort((a, b) {
           final ratingA = _recipeRatings[a['id']] ?? 0.0;
@@ -272,13 +249,12 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
     }
   }
 
-  /// Bottom sheet untuk memilih filter
   void _showFilterBottomSheet() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.7,
@@ -286,11 +262,10 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
         minChildSize: 0.5,
         expand: false,
         builder: (context, scrollController) => Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Handle
               Center(
                 child: Container(
                   width: 40,
@@ -303,16 +278,15 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
               ),
               const SizedBox(height: 20),
               
-              // Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
                     'Filter & Urutkan',
                     style: TextStyle(
-                      fontSize: 20,
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF5C4033),
+                      color: Color(0xFF264653),
                     ),
                   ),
                   TextButton(
@@ -328,7 +302,11 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
                       Navigator.pop(context);
                       _searchRecipes(_lastSearchQuery);
                     },
-                    child: const Text('Reset'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFFE76F51),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
+                    child: const Text('Reset', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -338,13 +316,12 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
                 child: ListView(
                   controller: scrollController,
                   children: [
-                    // Sort By
                     const Text(
                       'Urutkan Berdasarkan',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF5C4033),
+                        color: Color(0xFF264653),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -359,25 +336,39 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
                     ),
                     const SizedBox(height: 24),
 
-                    // Followed Users Only Toggle
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blue.shade200),
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color(0xFFE76F51).withValues(alpha: 0.1),
+                            const Color(0xFFF4A261).withValues(alpha: 0.1),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFFE76F51).withValues(alpha: 0.3),
+                          width: 1.5,
+                        ),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.people, color: Colors.blue.shade700),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE76F51).withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.people, color: Color(0xFFE76F51), size: 20),
+                          ),
                           const SizedBox(width: 12),
-                          Expanded(
+                          const Expanded(
                             child: Text(
                               'Hanya dari yang diikuti',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.blue.shade900,
+                                color: Color(0xFF264653),
                               ),
                             ),
                           ),
@@ -386,20 +377,19 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
                             onChanged: (value) {
                               setState(() => _followedUsersOnly = value);
                             },
-                            activeTrackColor: Colors.blue.shade700,
+                            activeThumbColor: const Color(0xFFE76F51),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 24),
 
-                    // Categories
                     const Text(
                       'Kategori',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF5C4033),
+                        color: Color(0xFF264653),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -423,10 +413,10 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
                             });
                           },
                           backgroundColor: Colors.grey.shade100,
-                          selectedColor: const Color(0xFFFF6B35).withValues(alpha: 0.2),
-                          checkmarkColor: const Color(0xFFFF6B35),
+                          selectedColor: const Color(0xFFE76F51).withValues(alpha: 0.2),
+                          checkmarkColor: const Color(0xFFE76F51),
                           labelStyle: TextStyle(
-                            color: isSelected ? const Color(0xFFFF6B35) : Colors.grey.shade700,
+                            color: isSelected ? const Color(0xFFE76F51) : Colors.grey.shade700,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                           ),
                         );
@@ -434,13 +424,12 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
                     ),
                     const SizedBox(height: 24),
 
-                    // Popular Tags
                     const Text(
                       'Tags Populer',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF5C4033),
+                        color: Color(0xFF264653),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -474,10 +463,10 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
                             });
                           },
                           backgroundColor: Colors.grey.shade100,
-                          selectedColor: const Color(0xFF6C63FF).withValues(alpha: 0.2),
-                          checkmarkColor: const Color(0xFF6C63FF),
+                          selectedColor: const Color(0xFFF4A261).withValues(alpha: 0.2),
+                          checkmarkColor: const Color(0xFFF4A261),
                           labelStyle: TextStyle(
-                            color: isSelected ? const Color(0xFF6C63FF) : Colors.grey.shade700,
+                            color: isSelected ? const Color(0xFFF4A261) : Colors.grey.shade700,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                           ),
                         );
@@ -489,27 +478,42 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
 
               const SizedBox(height: 16),
               
-              // Apply button
               SizedBox(
                 width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _searchRecipes(_lastSearchQuery);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF6B35),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                height: 54,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
                     ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFE76F51).withValues(alpha: 0.4),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
                   ),
-                  child: const Text(
-                    'Terapkan Filter',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _searchRecipes(_lastSearchQuery);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text(
+                      'Terapkan Filter',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
@@ -521,14 +525,13 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
     );
   }
 
-  /// Widget untuk sort chip
   Widget _buildSortChip(String label, String value, IconData icon) {
     final isSelected = _sortBy == value;
     return ChoiceChip(
       label: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.grey.shade700),
+          Icon(icon, size: 16, color: isSelected ? Colors.white : const Color(0xFF264653)),
           const SizedBox(width: 6),
           Text(label),
         ],
@@ -540,9 +543,9 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
         }
       },
       backgroundColor: Colors.grey.shade100,
-      selectedColor: const Color(0xFFFF6B35),
+      selectedColor: const Color(0xFFE76F51),
       labelStyle: TextStyle(
-        color: isSelected ? Colors.white : Colors.grey.shade700,
+        color: isSelected ? Colors.white : const Color(0xFF264653),
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
       ),
     );
@@ -550,7 +553,6 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
-    // Hitung jumlah active filters
     int activeFilters = 0;
     if (_selectedCategoryId != null) activeFilters++;
     if (_selectedTagId != null) activeFilters++;
@@ -558,28 +560,29 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
     if (_sortBy != 'popular') activeFilters++;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF8F0),
+      backgroundColor: const Color(0xFFF5F7FA),
       appBar: const CustomAppBar(showBackButton: true),
       body: Column(
         children: [
-          // Search Bar + Filter Button
           Container(
             margin: const EdgeInsets.all(20),
             child: Row(
               children: [
-                // Search field
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFFF6B35), width: 2),
+                      border: Border.all(
+                        color: const Color(0xFFE76F51).withValues(alpha: 0.3),
+                        width: 2,
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
                         ),
                       ],
                     ),
@@ -587,12 +590,12 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
                       controller: _searchController,
                       decoration: InputDecoration(
                         hintText: 'Cari resep...',
-                        hintStyle: TextStyle(color: Colors.grey.shade500),
+                        hintStyle: TextStyle(color: Colors.grey.shade400),
                         border: InputBorder.none,
-                        prefixIcon: const Icon(Icons.search, color: Color(0xFFFF6B35)),
+                        prefixIcon: const Icon(Icons.search, color: Color(0xFFE76F51)),
                         suffixIcon: _searchController.text.isNotEmpty
                             ? IconButton(
-                                icon: const Icon(Icons.clear, color: Color(0xFF5C4033)),
+                                icon: Icon(Icons.clear, color: Colors.grey.shade600),
                                 onPressed: () {
                                   _searchController.clear();
                                   _searchRecipes('');
@@ -601,10 +604,9 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
                               )
                             : null,
                       ),
-                      style: const TextStyle(color: Color(0xFF5C4033)),
+                      style: const TextStyle(color: Color(0xFF264653)),
                       onChanged: (value) {
                         setState(() {});
-                        // Debounce search
                         Future.delayed(const Duration(milliseconds: 500), () {
                           if (_searchController.text == value) {
                             _searchRecipes(value);
@@ -616,23 +618,22 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
                 ),
                 const SizedBox(width: 12),
                 
-                // Filter button dengan badge
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
                     Container(
-                      width: 50,
-                      height: 50,
+                      width: 54,
+                      height: 54,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [Color(0xFFFF6B35), Color(0xFFFF8C42)],
+                          colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
                         ),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFFF6B35).withValues(alpha: 0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+                            color: const Color(0xFFE76F51).withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
@@ -640,8 +641,8 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
                         color: Colors.transparent,
                         child: InkWell(
                           onTap: _showFilterBottomSheet,
-                          borderRadius: BorderRadius.circular(12),
-                          child: const Icon(Icons.tune, color: Colors.white),
+                          borderRadius: BorderRadius.circular(16),
+                          child: const Icon(Icons.tune, color: Colors.white, size: 24),
                         ),
                       ),
                     ),
@@ -650,20 +651,28 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
                         top: -4,
                         right: -4,
                         child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Colors.red,
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF3B30), Color(0xFFFF6B6B)],
+                            ),
                             shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.red.withValues(alpha: 0.4),
+                                blurRadius: 6,
+                              ),
+                            ],
                           ),
                           constraints: const BoxConstraints(
-                            minWidth: 20,
-                            minHeight: 20,
+                            minWidth: 22,
+                            minHeight: 22,
                           ),
                           child: Text(
                             '$activeFilters',
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 10,
+                              fontSize: 11,
                               fontWeight: FontWeight.bold,
                             ),
                             textAlign: TextAlign.center,
@@ -676,10 +685,9 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
             ),
           ),
 
-          // Active filters chips
           if (activeFilters > 0)
             Container(
-              height: 40,
+              height: 44,
               margin: const EdgeInsets.only(bottom: 12),
               child: ListView(
                 scrollDirection: Axis.horizontal,
@@ -722,7 +730,6 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
               ),
             ),
 
-          // Results
           Expanded(
             child: _isLoading
                 ? Center(
@@ -730,22 +737,32 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(20),
+                          padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
-                              colors: [Color(0xFFFF6B35), Color(0xFFFF8C42)],
+                              colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
                             ),
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFE76F51).withValues(alpha: 0.4),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
                           ),
-                          child: const CircularProgressIndicator(color: Colors.white),
+                          child: const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
                         ),
-                        const SizedBox(height: 16),
-                        const Text(
+                        const SizedBox(height: 24),
+                        Text(
                           'Mencari resep...',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF5C4033),
+                            color: Colors.grey.shade700,
                           ),
                         ),
                       ],
@@ -762,24 +779,42 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
                               _lastSearchQuery.isNotEmpty || activeFilters > 0
                                   ? 'Tidak ditemukan resep'
                                   : 'Cari resep favoritmu',
-                              style: TextStyle(fontSize: 18, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.grey.shade600,
+                                fontWeight: FontWeight.w600,
+                              ),
                               textAlign: TextAlign.center,
                             ),
                             if (activeFilters > 0) ...[
-                              const SizedBox(height: 8),
-                              TextButton(
-                                onPressed: () {
-                                  setState(() {
-                                    _selectedCategoryId = null;
-                                    _selectedCategoryName = null;
-                                    _selectedTagId = null;
-                                    _selectedTagName = null;
-                                    _sortBy = 'popular';
-                                    _followedUsersOnly = false;
-                                  });
-                                  _searchRecipes(_lastSearchQuery);
-                                },
-                                child: const Text('Reset Filter'),
+                              const SizedBox(height: 16),
+                              Container(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: TextButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      _selectedCategoryId = null;
+                                      _selectedCategoryName = null;
+                                      _selectedTagId = null;
+                                      _selectedTagName = null;
+                                      _sortBy = 'popular';
+                                      _followedUsersOnly = false;
+                                    });
+                                    _searchRecipes(_lastSearchQuery);
+                                  },
+                                  child: const Text(
+                                    'Reset Filter',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ],
                           ],
@@ -789,14 +824,8 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
                         opacity: _fadeAnimation,
                         child: SlideTransition(
                           position: _slideAnimation,
-                          child: GridView.builder(
+                          child: ListView.builder(
                             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              childAspectRatio: 0.55,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                            ),
                             itemCount: _searchResults.length,
                             itemBuilder: (context, index) {
                               final recipe = _searchResults[index];
@@ -826,25 +855,32 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
     );
   }
 
-  /// Widget untuk active filter chip yang bisa dihapus
   Widget _buildActiveFilterChip(String label, IconData icon, VoidCallback onRemove) {
     return Container(
       margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFF6B35).withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFFF6B35)),
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFFE76F51).withValues(alpha: 0.15),
+            const Color(0xFFF4A261).withValues(alpha: 0.15),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFE76F51).withValues(alpha: 0.4),
+          width: 1.5,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: const Color(0xFFFF6B35)),
+          Icon(icon, size: 16, color: const Color(0xFFE76F51)),
           const SizedBox(width: 6),
           Text(
             label,
             style: const TextStyle(
-              color: Color(0xFFFF6B35),
+              color: Color(0xFFE76F51),
               fontWeight: FontWeight.bold,
               fontSize: 13,
             ),
@@ -852,7 +888,14 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
           const SizedBox(width: 6),
           GestureDetector(
             onTap: onRemove,
-            child: const Icon(Icons.close, size: 16, color: Color(0xFFFF6B35)),
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE76F51).withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close, size: 14, color: Color(0xFFE76F51)),
+            ),
           ),
         ],
       ),
