@@ -4,6 +4,7 @@ import '../utils/supabase_client.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/custom_bottom_nav.dart';
 import '../widgets/recipe_card.dart';
+import '../widgets/theme.dart';
 import 'detail_screen.dart';
 import 'login_screen.dart';
 import 'create_recipe_screen.dart';
@@ -32,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   late Animation<Offset> _slideAnimation;
 
   final List<Map<String, String>> _dailyQuotes = [
-    {'quote': 'Masakan terbaik dibuat dengan cinta ❤️', 'author': 'Chef Julia Child'},
+    {'quote': 'Masakan terbaik dibuat dengan cinta ❤', 'author': 'Chef Julia Child'},
     {'quote': 'Memasak adalah seni yang bisa dinikmati semua orang 🎨', 'author': 'Gordon Ramsay'},
     {'quote': 'Resep adalah cerita yang berakhir dengan makanan lezat 📖', 'author': 'Pat Conroy'},
     {'quote': 'Kebahagiaan dimulai dari dapur 🍳', 'author': 'Traditional Wisdom'},
@@ -257,17 +258,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFFE76F51).withValues(alpha: 0.2),
-                  const Color(0xFFF4A261).withValues(alpha: 0.2),
-                ],
-              ),
+              gradient: AppTheme.cardGradient,
               shape: BoxShape.circle,
             ),
-            child: Center(
+            child: const Center(
               child: CircularProgressIndicator(
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFE76F51)),
+                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryCoral),
                 strokeWidth: 3,
               ),
             ),
@@ -275,11 +271,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           const SizedBox(height: 20),
           Text(
             'Memuat resep lezat...',
-            style: TextStyle(
-              color: Colors.grey.shade700,
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-            ),
+            style: AppTheme.bodyLarge.copyWith(color: AppTheme.textSecondary),
           ),
         ],
       ),
@@ -299,25 +291,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               child: Container(
                 margin: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF264653),
-                      Color(0xFF2A9D8F),
-                      Color(0xFFE9C46A),
-                      Color(0xFFF4A261),
-                      Color(0xFFE76F51),
-                    ],
-                  ),
+                  gradient: AppTheme.primaryGradient,
                   borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFE76F51).withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
+                  boxShadow: AppTheme.primaryShadow,
                 ),
                 child: Column(
                   children: [
@@ -331,12 +307,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             children: [
                               Text(
                                 'Halo, ${_username ?? 'Foodie'}! 👋',
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  letterSpacing: 0.3,
-                                ),
+                                style: AppTheme.headingLarge.copyWith(letterSpacing: 0.3),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -456,11 +427,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     width: 4,
                     height: 24,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
+                      gradient: AppTheme.accentGradient,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -468,25 +435,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   const Expanded(
                     child: Text(
                       'Resep Terpopuler',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF264653),
-                      ),
+                      style: AppTheme.headingMedium,
                     ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color(0xFFE76F51).withValues(alpha: 0.1),
-                          const Color(0xFFF4A261).withValues(alpha: 0.1),
-                        ],
-                      ),
+                      gradient: AppTheme.cardGradient,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: const Color(0xFFE76F51).withValues(alpha: 0.3),
+                        color: AppTheme.primaryCoral.withValues(alpha: 0.3),
                         width: 1,
                       ),
                     ),
@@ -496,14 +454,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                         const Icon(
                           Icons.local_fire_department_rounded,
                           size: 16,
-                          color: Color(0xFFE76F51),
+                          color: AppTheme.primaryCoral,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           '${_popularRecipes.length}',
                           style: const TextStyle(
                             fontSize: 13,
-                            color: Color(0xFFE76F51),
+                            color: AppTheme.primaryCoral,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -617,25 +575,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     width: 140,
                     height: 140,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color(0xFFE76F51).withValues(alpha: 0.15),
-                          const Color(0xFFF4A261).withValues(alpha: 0.15),
-                        ],
-                      ),
+                      gradient: AppTheme.cardGradient,
                       shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFE76F51).withValues(alpha: 0.2),
-                          blurRadius: 30,
-                          spreadRadius: 10,
-                        ),
-                      ],
                     ),
                     child: const Icon(
                       Icons.restaurant_menu_rounded,
                       size: 70,
-                      color: Color(0xFFE76F51),
+                      color: AppTheme.primaryCoral,
                     ),
                   ),
                 );
@@ -656,9 +602,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             
             Text(
               'Jadilah yang pertama membagikan\nresep lezat dan inspirasi kuliner!',
-              style: TextStyle(
-                fontSize: 15,
-                color: Colors.grey.shade600,
+              style: AppTheme.bodyLarge.copyWith(
+                color: AppTheme.textSecondary,
                 height: 1.6,
               ),
               textAlign: TextAlign.center,
@@ -678,23 +623,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 },
                 borderRadius: BorderRadius.circular(16),
                 child: Ink(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFFE76F51),
-                        Color(0xFFF4A261),
-                        Color(0xFFE9C46A),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFE76F51).withValues(alpha: 0.4),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
+                  decoration: AppTheme.primaryButtonDecoration,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 32,
@@ -711,12 +640,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                         SizedBox(width: 12),
                         Text(
                           'Buat Resep Pertama',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.3,
-                          ),
+                          style: AppTheme.buttonText,
                         ),
                       ],
                     ),

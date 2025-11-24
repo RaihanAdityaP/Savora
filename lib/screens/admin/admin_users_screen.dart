@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/supabase_client.dart';
 
-// Mendefinisikan layar pengelolaan pengguna sebagai StatefulWidget
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({super.key});
 
@@ -9,31 +8,43 @@ class AdminUsersScreen extends StatefulWidget {
   State<AdminUsersScreen> createState() => _AdminUsersScreenState();
 }
 
-// State class untuk mengelola data dan interaksi pada layar pengelolaan pengguna
-class _AdminUsersScreenState extends State<AdminUsersScreen> {
-  // Menyimpan semua data pengguna dari database
+class _AdminUsersScreenState extends State<AdminUsersScreen>
+    with SingleTickerProviderStateMixin {
   List<Map<String, dynamic>> _users = [];
-  // Menyimpan daftar pengguna yang telah difilter berdasarkan pencarian dan status
   List<Map<String, dynamic>> _filteredUsers = [];
-  // Menandai apakah sedang dalam proses memuat data
   bool _isLoading = true;
-  // Menyimpan teks yang dimasukkan pengguna untuk pencarian
   String _searchQuery = '';
-  // Menyimpan status filter yang dipilih (semua, aktif, atau banned)
   String _filterStatus = 'all';
+  
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-    // Memuat daftar pengguna saat widget pertama kali dibuat
+    
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    );
+    
     _loadUsers();
   }
 
-  // Fungsi untuk mengambil data pengguna dari Supabase dan informasi admin yang melakukan ban
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadUsers() async {
     setState(() => _isLoading = true);
     try {
-      // Mengambil data dasar pengguna dari tabel 'profiles'
       final response = await supabase
           .from('profiles')
           .select('''
@@ -42,7 +53,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           ''')
           .order('created_at', ascending: false);
 
-      // Mengambil username admin yang melakukan ban untuk setiap pengguna yang dibanned
       final List<Map<String, dynamic>> usersWithAdminInfo = [];
       for (var user in response) {
         final userData = Map<String, dynamic>.from(user);
@@ -55,45 +65,38 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 .eq('id', user['banned_by'])
                 .maybeSingle();
             
-            userData['banned_by_admin_username'] = adminData?['username'] ?? 'Admin Tidak Diketahui';
+            userData['banned_by_admin_username'] = adminData?['username'] ?? 'Unknown Admin';
           } catch (e) {
-            userData['banned_by_admin_username'] = 'Admin Tidak Diketahui';
+            userData['banned_by_admin_username'] = 'Unknown Admin';
           }
         }
         
         usersWithAdminInfo.add(userData);
       }
 
-      // Memastikan widget masih terpasang sebelum memperbarui state
       if (mounted) {
         setState(() {
           _users = usersWithAdminInfo;
           _applyFilters();
           _isLoading = false;
         });
+        _animationController.forward();
       }
     } catch (e) {
-      // Menangani error saat memuat data
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal memuat pengguna: $e')),
-        );
+        _showSnackBar('Failed to load users: $e', isError: true);
       }
     }
   }
 
-  // Fungsi untuk menerapkan filter berdasarkan pencarian dan status pengguna
   void _applyFilters() {
     setState(() {
       _filteredUsers = _users.where((user) {
-        // Cek apakah pengguna cocok dengan kata kunci pencarian
         final matchesSearch = _searchQuery.isEmpty ||
             (user['username']?.toLowerCase() ?? '').contains(_searchQuery.toLowerCase()) ||
             (user['full_name']?.toLowerCase() ?? '').contains(_searchQuery.toLowerCase());
-        // Cek status banned
         final isBanned = user['is_banned'] == true;
-        // Cek apakah status pengguna sesuai dengan filter yang dipilih
         final matchesStatus = _filterStatus == 'all' ||
             (_filterStatus == 'banned' && isBanned) ||
             (_filterStatus == 'active' && !isBanned);
@@ -102,7 +105,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     });
   }
 
-  // Fungsi untuk menangani toggle ban/unban
   Future<void> _toggleBanUser(Map<String, dynamic> user) async {
     final isBanned = user['is_banned'] == true;
     if (isBanned) {
@@ -112,42 +114,61 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     }
   }
 
-  // Menampilkan dialog untuk memilih alasan ban sebelum melakukan banned
   Future<void> _showBanDialog(Map<String, dynamic> user) async {
     final reasonController = TextEditingController();
     String selectedReason = 'spam';
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => StatefulBuilder(
+      builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('Ban ${user['username']}'),
+          backgroundColor: const Color(0xFF1A1A1A),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFF44336), Color(0xFFE57373)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.block_rounded, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Ban ${user['username']}',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Pilih alasan ban:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                Text(
+                  'Select ban reason:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade300,
+                  ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: [
-                    'spam',
-                    'inappropriate_content',
-                    'harassment',
-                    'fake_account',
-                    'other'
-                  ].map((reason) {
+                  children: ['spam', 'inappropriate_content', 'harassment', 'fake_account', 'other']
+                      .map((reason) {
                     final isSelected = selectedReason == reason;
                     return ChoiceChip(
                       label: Text(
                         _getReasonText(reason),
                         style: TextStyle(
                           fontSize: 12,
-                          color: isSelected ? Colors.white : Colors.black87,
+                          color: isSelected ? Colors.black : Colors.white,
                         ),
                       ),
                       selected: isSelected,
@@ -156,10 +177,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                           setDialogState(() => selectedReason = reason);
                         }
                       },
-                      selectedColor: const Color(0xFFD4AF37),
-                      backgroundColor: Colors.grey.shade200,
+                      selectedColor: const Color(0xFFFFD700),
+                      backgroundColor: const Color(0xFF2D2D2D),
                       showCheckmark: false,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     );
                   }).toList(),
                 ),
@@ -168,17 +188,15 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                   TextField(
                     controller: reasonController,
                     maxLines: 3,
+                    style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
-                      hintText: 'Masukkan alasan...',
+                      hintText: 'Enter reason...',
+                      hintStyle: TextStyle(color: Colors.grey.shade600),
+                      filled: true,
+                      fillColor: const Color(0xFF2D2D2D),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFD4AF37),
-                          width: 2,
-                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
                       ),
                     ),
                   ),
@@ -188,21 +206,29 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Batal'),
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text('Cancel', style: TextStyle(color: Colors.grey.shade400)),
             ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
+            Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFF44336), Color(0xFFE57373)],
+                ),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text('Ban User'),
+              child: TextButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text(
+                  'Ban User',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
             ),
           ],
         ),
       ),
     );
+    
     if (confirmed == true) {
       final reason = selectedReason == 'other' && reasonController.text.isNotEmpty
           ? reasonController.text
@@ -211,30 +237,22 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     }
   }
 
-  // Mengonversi kode alasan ban menjadi teks yang mudah dibaca
   String _getReasonText(String reason) {
     switch (reason) {
-      case 'spam':
-        return 'Spam';
-      case 'inappropriate_content':
-        return 'Konten Tidak Pantas';
-      case 'harassment':
-        return 'Pelecehan';
-      case 'fake_account':
-        return 'Akun Palsu';
-      case 'other':
-        return 'Lainnya';
-      default:
-        return reason;
+      case 'spam': return 'Spam';
+      case 'inappropriate_content': return 'Inappropriate Content';
+      case 'harassment': return 'Harassment';
+      case 'fake_account': return 'Fake Account';
+      case 'other': return 'Other';
+      default: return reason;
     }
   }
 
-  // Fungsi untuk melakukan banned pengguna
   Future<void> _banUser(Map<String, dynamic> user, String reason) async {
     try {
       final adminId = supabase.auth.currentUser?.id;
       final now = DateTime.now().toIso8601String();
-      // Memperbarui data profil pengguna
+      
       await supabase.from('profiles').update({
         'is_banned': true,
         'banned_at': now,
@@ -242,7 +260,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         'banned_by': adminId,
       }).eq('id', user['id']);
 
-      // Mencatat aktivitas ke log aktivitas admin
       await supabase.rpc('log_ban_activity', params: {
         'p_user_id': adminId,
         'p_target_user_id': user['id'],
@@ -251,61 +268,71 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         'p_is_ban': true,
       });
 
-      // Membuat notifikasi untuk pengguna yang dibanned
-      await supabase.rpc('create_notification', params: {
-        'p_user_id': user['id'],
-        'p_title': 'Akun Dinonaktifkan',
-        'p_message': 'Akun Anda telah dinonaktifkan. Alasan: $reason',
-        'p_type': 'admin',
-      });
-
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('User berhasil dibanned'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showSnackBar('User banned successfully', isError: false);
         _loadUsers();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        _showSnackBar('Error: $e', isError: true);
       }
     }
   }
 
-  // Fungsi untuk mengaktifkan kembali pengguna yang dibanned
   Future<void> _unbanUser(Map<String, dynamic> user) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Aktifkan Pengguna'),
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Text('Unban User', style: TextStyle(color: Colors.white)),
+          ],
+        ),
         content: Text(
-          'Apakah Anda yakin ingin mengaktifkan kembali ${user['username']}?',
+          'Are you sure you want to unban ${user['username']}?',
+          style: TextStyle(color: Colors.grey.shade300),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Batal'),
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text('Cancel', style: TextStyle(color: Colors.grey.shade400)),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)],
+              ),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: const Text('Aktifkan'),
+            child: TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text(
+                'Unban',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
           ),
         ],
       ),
     );
+    
     if (confirm == true) {
       try {
         final adminId = supabase.auth.currentUser?.id;
-        // Menghapus data banned dari profil pengguna
+        
         await supabase.from('profiles').update({
           'is_banned': false,
           'banned_at': null,
@@ -313,7 +340,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           'banned_by': null,
         }).eq('id', user['id']);
 
-        // Mencatat aktivitas unban
         await supabase.rpc('log_ban_activity', params: {
           'p_user_id': adminId,
           'p_target_user_id': user['id'],
@@ -321,318 +347,352 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           'p_is_ban': false,
         });
 
-        // Mengirim notifikasi ke pengguna
-        await supabase.rpc('create_notification', params: {
-          'p_user_id': user['id'],
-          'p_title': 'Akun Diaktifkan Kembali',
-          'p_message': 'Akun Anda telah diaktifkan kembali. Silakan login.',
-          'p_type': 'admin',
-        });
-
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('User berhasil diaktifkan kembali'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          _showSnackBar('User unbanned successfully', isError: false);
           _loadUsers();
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
+          _showSnackBar('Error: $e', isError: true);
         }
       }
     }
   }
 
-  // Menampilkan detail alasan banned kepada admin
-  void _showBanDetails(Map<String, dynamic> user) {
-    final reason = user['banned_reason'] ?? 'Tidak disebutkan';
-    final bannedAt = user['banned_at'];
-    final bannedBy = user['banned_by_admin_username'] ?? 'Admin Tidak Diketahui';
-
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.block, color: Colors.red.shade700),
-            const SizedBox(width: 8),
-            const Text('Akun Dinonaktifkan'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Akun ini telah dinonaktifkan oleh administrator.',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            const Text('Alasan:', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade200),
-              ),
-              child: Text(
-                reason,
-                style: TextStyle(color: Colors.red.shade700),
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text('Dinonaktifkan oleh:', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(bannedBy),
-            if (bannedAt != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                'Waktu: ${_formatDateTime(bannedAt)}',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-            ],
-            const SizedBox(height: 16),
-            const Text(
-              'Anda dapat mengaktifkan kembali akun ini kapan saja.',
-              style: TextStyle(fontSize: 13),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Tutup'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Memformat waktu banned menjadi format waktu relatif
-  String _formatDateTime(String dateTimeStr) {
-    try {
-      final dateTime = DateTime.parse(dateTimeStr);
-      final now = DateTime.now();
-      final difference = now.difference(dateTime);
-      if (difference.inDays > 0) {
-        return '${difference.inDays} hari yang lalu';
-      } else if (difference.inHours > 0) {
-        return '${difference.inHours} jam yang lalu';
-      } else {
-        return '${difference.inMinutes} menit yang lalu';
-      }
-    } catch (e) {
-      return dateTimeStr;
-    }
-  }
-
-  // Fungsi untuk mengaktifkan/menonaktifkan status premium pengguna
   Future<void> _togglePremium(Map<String, dynamic> user) async {
     final isPremium = user['is_premium'] == true;
     try {
       await supabase.from('profiles').update({
         'is_premium': !isPremium,
       }).eq('id', user['id']);
+      
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isPremium ? 'Premium status dihapus' : 'Premium status diberikan',
-            ),
-            backgroundColor: const Color(0xFFE5BFA5),
-          ),
+        _showSnackBar(
+          isPremium ? 'Premium removed' : 'Premium granted',
+          isError: false,
         );
         _loadUsers();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        _showSnackBar('Error: $e', isError: true);
       }
     }
+  }
+
+  void _showSnackBar(String message, {required bool isError}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isError ? Icons.error_outline : Icons.check_circle_outline,
+              color: Colors.white,
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: isError ? Colors.red.shade600 : Colors.green.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Warna latar belakang halaman
-      backgroundColor: const Color(0xFFF8F4F0),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFD4AF37),
-        title: const Text(
-          'Kelola Pengguna',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+      backgroundColor: const Color(0xFF0F0F0F),
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          _buildLuxuryAppBar(),
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                _buildSearchAndFilter(),
+                if (_isLoading)
+                  const Padding(
+                    padding: EdgeInsets.all(60),
+                    child: CircularProgressIndicator(color: Color(0xFFFFD700)),
+                  )
+                else if (_filteredUsers.isEmpty)
+                  _buildEmptyState()
+                else
+                  FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: _buildUserList(),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLuxuryAppBar() {
+    return SliverAppBar(
+      expandedHeight: 180,
+      pinned: true,
+      backgroundColor: Colors.black,
+      leading: IconButton(
+        icon: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+          ),
+          child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
         ),
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+        onPressed: () => Navigator.pop(context),
+      ),
+      flexibleSpace: FlexibleSpaceBar(
+        background: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF1A1A1A), Color(0xFF2D2D2D)],
+            ),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)],
+                          ),
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF4CAF50).withValues(alpha: 0.4),
+                              blurRadius: 20,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.people_alt_rounded,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'USER MANAGEMENT',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Manage Platform Users',
+                              style: TextStyle(
+                                color: Color(0xFF4CAF50),
+                                fontSize: 13,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
-      body: Column(
+    );
+  }
+
+  Widget _buildSearchAndFilter() {
+    return Container(
+      margin: const EdgeInsets.all(24),
+      child: Column(
         children: [
-          // Kolom pencarian pengguna
+          // Search Bar
           Container(
-            color: Colors.white,
-            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF2D2D2D), Color(0xFF1A1A1A)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+            ),
             child: TextField(
               onChanged: (value) {
                 _searchQuery = value;
                 _applyFilters();
               },
+              style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'Cari pengguna...',
-                prefixIcon: const Icon(Icons.search, color: Color(0xFF5C4033)),
-                filled: true,
-                fillColor: const Color(0xFFF8F4F0),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
+                hintText: 'Search users...',
+                hintStyle: TextStyle(color: Colors.grey.shade600),
+                prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFFFFD700)),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.all(16),
               ),
             ),
           ),
-          // Panel filter status (Semua, Aktif, Banned)
+          const SizedBox(height: 16),
+          
+          // Filter Chips
           Container(
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A1A),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+            ),
             child: Row(
               children: [
-                Expanded(child: _buildFilterChip('Semua', 'all')),
-                const SizedBox(width: 8),
-                Expanded(child: _buildFilterChip('Aktif', 'active')),
-                const SizedBox(width: 8),
-                Expanded(child: _buildFilterChip('Banned', 'banned')),
+                _buildFilterChip('All', 'all'),
+                _buildFilterChip('Active', 'active'),
+                _buildFilterChip('Banned', 'banned'),
               ],
             ),
-          ),
-          // Daftar pengguna
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _filteredUsers.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.people_outline, size: 64, color: Colors.grey.shade400),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Tidak ada pengguna ditemukan',
-                              style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
-                            ),
-                          ],
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadUsers,
-                        color: const Color(0xFFD4AF37),
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _filteredUsers.length,
-                          itemBuilder: (context, index) => _buildUserCard(_filteredUsers[index]),
-                        ),
-                      ),
           ),
         ],
       ),
     );
   }
 
-  // Membangun chip filter status
   Widget _buildFilterChip(String label, String value) {
     final isSelected = _filterStatus == value;
-    return GestureDetector(
-      onTap: () {
-        setState(() => _filterStatus = value);
-        _applyFilters();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFD4AF37) : Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey.shade700,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            fontSize: 13,
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() => _filterStatus = value);
+          _applyFilters();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            gradient: isSelected
+                ? const LinearGradient(colors: [Color(0xFFFFD700), Color(0xFFFFA500)])
+                : null,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: isSelected ? Colors.black : Colors.grey.shade500,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+              fontSize: 14,
+              letterSpacing: 0.5,
+            ),
           ),
         ),
       ),
     );
   }
 
-  // Membangun kartu pengguna dengan avatar, info, status, dan tombol aksi
+  Widget _buildUserList() {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
+      itemCount: _filteredUsers.length,
+      itemBuilder: (context, index) => _buildUserCard(_filteredUsers[index]),
+    );
+  }
+
   Widget _buildUserCard(Map<String, dynamic> user) {
     final isBanned = user['is_banned'] == true;
     final isAdmin = user['role'] == 'admin';
     final isPremium = user['is_premium'] == true;
-    final username = user['username'] ?? 'Unknown';
-    final fullName = user['full_name'] ?? '';
-    final avatarUrl = user['avatar_url'];
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isBanned
+              ? [const Color(0xFF2D1A1A), const Color(0xFF1A1010)]
+              : [const Color(0xFF2D2D2D), const Color(0xFF1A1A1A)],
+        ),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isBanned
-              ? Colors.red.shade200
+              ? Colors.red.withValues(alpha: 0.3)
               : isAdmin
-                  ? const Color(0xFFD4AF37).withValues(alpha: 0.3)
-                  : Colors.transparent,
-          width: isBanned || isAdmin ? 2 : 0,
+                  ? const Color(0xFFFFD700).withValues(alpha: 0.3)
+                  : Colors.white.withValues(alpha: 0.1),
+          width: isBanned || isAdmin ? 2 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                // Avatar pengguna dengan warna berbeda berdasarkan status
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: isAdmin
-                      ? const Color(0xFFD4AF37)
-                      : isPremium
-                          ? const Color(0xFFE5BFA5)
-                          : Colors.grey.shade300,
-                  backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
-                  child: avatarUrl == null
-                      ? Text(
-                          username[0].toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                          ),
-                        )
-                      : null,
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: isAdmin
+                        ? const LinearGradient(colors: [Color(0xFFFFD700), Color(0xFFFFA500)])
+                        : isPremium
+                            ? const LinearGradient(colors: [Color(0xFF9C27B0), Color(0xFFBA68C8)])
+                            : null,
+                    border: Border.all(
+                      color: isAdmin
+                          ? const Color(0xFFFFD700)
+                          : isPremium
+                              ? const Color(0xFF9C27B0)
+                              : Colors.grey.shade700,
+                      width: 3,
+                    ),
+                  ),
+                  child: CircleAvatar(
+                    radius: 28,
+                    backgroundColor: const Color(0xFF2D2D2D),
+                    backgroundImage:
+                        user['avatar_url'] != null ? NetworkImage(user['avatar_url']) : null,
+                    child: user['avatar_url'] == null
+                        ? Text(
+                            (user['username'] ?? 'U')[0].toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          )
+                        : null,
+                  ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -641,143 +701,219 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                         children: [
                           Flexible(
                             child: Text(
-                              username,
+                              user['username'] ?? 'Unknown',
                               style: const TextStyle(
+                                fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Color(0xFF5C4033),
+                                color: Colors.white,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          // Badge ADMIN jika pengguna adalah admin
                           if (isAdmin) ...[
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFD4AF37),
-                                borderRadius: BorderRadius.circular(4),
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                                ),
+                                borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Text(
                                 'ADMIN',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: Colors.black,
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
+                                  letterSpacing: 1,
                                 ),
                               ),
                             ),
                           ],
-                          // Ikon premium jika pengguna berstatus premium
                           if (isPremium) ...[
-                            const SizedBox(width: 6),
-                            const Icon(Icons.workspace_premium, color: Color(0xFFE5BFA5), size: 16),
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.workspace_premium_rounded,
+                              color: Color(0xFF9C27B0),
+                              size: 20,
+                            ),
                           ],
                         ],
                       ),
-                      // Nama lengkap jika tersedia
-                      if (fullName.isNotEmpty) ...[
-                        const SizedBox(height: 2),
+                      if (user['full_name'] != null && user['full_name'].toString().isNotEmpty) ...[
+                        const SizedBox(height: 4),
                         Text(
-                          fullName,
-                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                          overflow: TextOverflow.ellipsis,
+                          user['full_name'],
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade400,
+                          ),
                         ),
                       ],
                     ],
                   ),
                 ),
-                // Label dan ikon info untuk pengguna yang dibanned
                 if (isBanned)
-                  InkWell(
-                    onTap: () => _showBanDetails(user),
-                    borderRadius: BorderRadius.circular(6),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.red.shade200),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'BANNED',
-                            style: TextStyle(
-                              color: Colors.red.shade700,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(Icons.info_outline, size: 14, color: Colors.red.shade700),
-                        ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.withValues(alpha: 0.5)),
+                    ),
+                    child: const Text(
+                      'BANNED',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
                       ),
                     ),
                   ),
               ],
             ),
-            // Menampilkan alasan banned secara eksplisit bila tersedia
             if (isBanned && user['banned_reason'] != null) ...[
-              const SizedBox(height: 12),
-              InkWell(
-                onTap: () => _showBanDetails(user),
-                borderRadius: BorderRadius.circular(6),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.warning_amber, size: 16, color: Colors.red.shade700),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          user['banned_reason'],
-                          style: TextStyle(fontSize: 12, color: Colors.red.shade700),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_rounded, color: Colors.red, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        user['banned_reason'],
+                        style: const TextStyle(color: Colors.red, fontSize: 13),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ],
-            const SizedBox(height: 12),
-            // Tombol aksi: Ban/Aktifkan dan Upgrade Premium
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: isAdmin ? null : () => _toggleBanUser(user),
-                    icon: Icon(isBanned ? Icons.check_circle : Icons.block, size: 18),
-                    label: Text(isBanned ? 'Aktifkan' : 'Ban'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: isBanned ? Colors.green : Colors.red,
-                      side: BorderSide(color: isBanned ? Colors.green : Colors.red),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  child: Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      gradient: isBanned
+                          ? const LinearGradient(colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)])
+                          : const LinearGradient(colors: [Color(0xFFF44336), Color(0xFFE57373)]),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: isAdmin ? null : () => _toggleBanUser(user),
+                        borderRadius: BorderRadius.circular(14),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              isBanned ? Icons.check_circle_rounded : Icons.block_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              isBanned ? 'UNBAN' : 'BAN',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: isAdmin ? null : () => _togglePremium(user),
-                    icon: Icon(isPremium ? Icons.workspace_premium : Icons.star_outline, size: 18),
-                    label: Text(isPremium ? 'Premium' : 'Upgrade'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFE5BFA5),
-                      side: const BorderSide(color: Color(0xFFE5BFA5)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  child: Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF9C27B0), Color(0xFFBA68C8)],
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: isAdmin ? null : () => _togglePremium(user),
+                        borderRadius: BorderRadius.circular(14),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              isPremium ? Icons.workspace_premium : Icons.star_outline_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              isPremium ? 'REMOVE' : 'UPGRADE',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Padding(
+      padding: const EdgeInsets.all(60),
+      child: Center(
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 2),
+              ),
+              child: Icon(Icons.people_outline_rounded, size: 64, color: Colors.grey.shade700),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'No Users Found',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade400,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Try adjusting your search or filters',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+              ),
             ),
           ],
         ),

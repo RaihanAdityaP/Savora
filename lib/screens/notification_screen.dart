@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/supabase_client.dart';
+import '../widgets/theme.dart';
 import 'profile_screen.dart';
 import 'detail_screen.dart';
 
@@ -282,11 +283,11 @@ class _NotificationScreenState extends State<NotificationScreen> with SingleTick
       case 'recipe_rejected':
         return Colors.red.shade500;
       case 'new_follower':
-        return Colors.blue.shade500;
+        return AppTheme.primaryTeal;
       case 'new_recipe_from_following':
-        return Colors.orange.shade500;
+        return AppTheme.primaryOrange;
       case 'admin':
-        return const Color(0xFFFF6B35);
+        return AppTheme.primaryCoral;
       default:
         return Colors.grey.shade500;
     }
@@ -312,7 +313,7 @@ class _NotificationScreenState extends State<NotificationScreen> with SingleTick
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: AppTheme.backgroundLight,
       body: CustomScrollView(
         slivers: [
           // AppBar dengan gradient
@@ -327,15 +328,10 @@ class _NotificationScreenState extends State<NotificationScreen> with SingleTick
                 decoration: BoxDecoration(
                   color: Colors.white,
                   shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 8,
-                    ),
-                  ],
+                  boxShadow: AppTheme.cardShadow,
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Color(0xFF2B6CB0)),
+                  icon: const Icon(Icons.arrow_back, color: AppTheme.primaryTeal),
                   onPressed: () => Navigator.pop(context),
                 ),
               ),
@@ -348,15 +344,10 @@ class _NotificationScreenState extends State<NotificationScreen> with SingleTick
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 8,
-                        ),
-                      ],
+                      boxShadow: AppTheme.cardShadow,
                     ),
                     child: IconButton(
-                      icon: const Icon(Icons.done_all_rounded, color: Color(0xFF2B6CB0)),
+                      icon: const Icon(Icons.done_all_rounded, color: AppTheme.primaryTeal),
                       onPressed: _markAllAsRead,
                       tooltip: 'Tandai semua sudah dibaca',
                     ),
@@ -368,15 +359,10 @@ class _NotificationScreenState extends State<NotificationScreen> with SingleTick
                   decoration: BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 8,
-                      ),
-                    ],
+                    boxShadow: AppTheme.cardShadow,
                   ),
                   child: PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF2B6CB0)),
+                    icon: const Icon(Icons.more_vert_rounded, color: AppTheme.primaryTeal),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     onSelected: (value) {
                       if (value == 'delete_all') {
@@ -402,24 +388,8 @@ class _NotificationScreenState extends State<NotificationScreen> with SingleTick
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFF2B6CB0), // Biru
-                      const Color(0xFF3182CE),
-                      Colors.blue.shade400,
-                      Colors.orange.shade400,
-                      const Color(0xFFFF6B35), // Orange
-                    ],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.blue.withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
+                  gradient: AppTheme.primaryGradient,
+                  boxShadow: AppTheme.primaryShadow,
                 ),
                 child: SafeArea(
                   child: Padding(
@@ -453,11 +423,7 @@ class _NotificationScreenState extends State<NotificationScreen> with SingleTick
                                 children: [
                                   const Text(
                                     'Notifikasi',
-                                    style: TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
+                                    style: AppTheme.headingLarge,
                                   ),
                                   if (_unreadCount > 0)
                                     Container(
@@ -469,10 +435,10 @@ class _NotificationScreenState extends State<NotificationScreen> with SingleTick
                                       ),
                                       child: Text(
                                         '$_unreadCount baru',
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold,
-                                          color: Colors.orange.shade600,
+                                          color: AppTheme.primaryOrange,
                                         ),
                                       ),
                                     ),
@@ -494,7 +460,7 @@ class _NotificationScreenState extends State<NotificationScreen> with SingleTick
               ? const SliverFillRemaining(
                   child: Center(
                     child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2B6CB0)),
+                      valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryTeal),
                     ),
                   ),
                 )
@@ -544,20 +510,9 @@ class _NotificationScreenState extends State<NotificationScreen> with SingleTick
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.blue.shade100,
-                  Colors.orange.shade100,
-                ],
-              ),
+              gradient: AppTheme.cardGradient,
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.blue.withValues(alpha: 0.2),
-                  blurRadius: 20,
-                  spreadRadius: 5,
-                ),
-              ],
+              boxShadow: AppTheme.cardShadow,
             ),
             child: Icon(
               Icons.notifications_off_rounded,
@@ -577,10 +532,7 @@ class _NotificationScreenState extends State<NotificationScreen> with SingleTick
           const SizedBox(height: 8),
           Text(
             'Notifikasi akan muncul di sini',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade500,
-            ),
+            style: AppTheme.bodySmall,
           ),
         ],
       ),
@@ -734,7 +686,7 @@ class _NotificationScreenState extends State<NotificationScreen> with SingleTick
                                   style: TextStyle(
                                     fontWeight: isRead ? FontWeight.w600 : FontWeight.bold,
                                     fontSize: 15,
-                                    color: const Color(0xFF2D3748),
+                                    color: AppTheme.textPrimary,
                                   ),
                                 ),
                               ),
@@ -761,9 +713,8 @@ class _NotificationScreenState extends State<NotificationScreen> with SingleTick
                           const SizedBox(height: 6),
                           Text(
                             notification['message'] ?? '',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade700,
+                            style: AppTheme.bodyMedium.copyWith(
+                              color: AppTheme.textSecondary,
                               height: 1.4,
                             ),
                           ),
@@ -774,9 +725,7 @@ class _NotificationScreenState extends State<NotificationScreen> with SingleTick
                               const SizedBox(width: 4),
                               Text(
                                 _getTimeAgo(notification['created_at']),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade500,
+                                style: AppTheme.bodySmall.copyWith(
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
