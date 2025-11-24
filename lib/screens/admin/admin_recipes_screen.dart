@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/supabase_client.dart';
 
-// Mendefinisikan layar moderasi resep sebagai StatefulWidget
 class AdminRecipesScreen extends StatefulWidget {
   const AdminRecipesScreen({super.key});
 
@@ -9,465 +8,436 @@ class AdminRecipesScreen extends StatefulWidget {
   State<AdminRecipesScreen> createState() => _AdminRecipesScreenState();
 }
 
-// State class untuk mengelola data dan interaksi pada layar moderasi resep
-class _AdminRecipesScreenState extends State<AdminRecipesScreen> {
-  // Menyimpan daftar resep yang diambil dari database
+class _AdminRecipesScreenState extends State<AdminRecipesScreen>
+    with SingleTickerProviderStateMixin {
   List<Map<String, dynamic>> _recipes = [];
-  // Menandai apakah sedang dalam proses memuat data
   bool _isLoading = true;
-  // Menyimpan status filter resep (pending, approved, rejected)
   String _filterStatus = 'pending';
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-    // Memuat resep saat widget pertama kali dibuat
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    );
     _loadRecipes();
   }
 
-  // Fungsi untuk mengambil daftar resep dari Supabase berdasarkan status yang dipilih
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadRecipes() async {
     setState(() => _isLoading = true);
     try {
       final response = await supabase
           .from('recipes')
-          .select('''
-            *, 
-            profiles!recipes_user_id_fkey(username, avatar_url),
-            categories(id, name)
-          ''')
+          .select('''*, profiles!recipes_user_id_fkey(username, avatar_url, role),
+            categories(id, name), recipe_tags(tags(id, name))''')
           .eq('status', _filterStatus)
           .order('created_at', ascending: false);
-
-      // Memastikan widget masih terpasang sebelum memperbarui state
       if (mounted) {
         setState(() {
           _recipes = List<Map<String, dynamic>>.from(response);
           _isLoading = false;
         });
+        _animationController.forward(from: 0);
       }
     } catch (e) {
-      // Menangani error saat memuat data
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
   }
 
-  // Fungsi untuk memperbarui status resep (approve atau reject)
   Future<void> _moderateRecipe(String recipeId, String status) async {
     try {
-      final now = DateTime.now().toIso8601String();
-      // Memperbarui data resep di database dengan status baru dan info moderator
       await supabase.from('recipes').update({
         'status': status,
         'moderated_by': supabase.auth.currentUser?.id,
-        'moderated_at': now,
+        'moderated_at': DateTime.now().toIso8601String(),
       }).eq('id', recipeId);
-
       if (mounted) {
-        // Menampilkan notifikasi sukses
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(status == 'approved' ? 'Resep disetujui' : 'Resep ditolak'),
+            content: Text(status == 'approved' ? 'Recipe Approved!' : 'Recipe Rejected'),
             backgroundColor: status == 'approved' ? Colors.green : Colors.red,
           ),
         );
-        // Memuat ulang daftar resep
         _loadRecipes();
       }
     } catch (e) {
-      // Menangani error saat memperbarui status
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
+  }
+
+  void _showRecipePreview(Map<String, dynamic> recipe) {
+      showBottomSheet(
+      context: context,
+      backgroundColor: Color(0xFF1A1A1A),
+      builder: (ctx) => _RecipePreviewSheet(
+        recipe: recipe,
+        onApprove: () { Navigator.pop(ctx); _moderateRecipe(recipe['id'], 'approved'); },
+        onReject: () { Navigator.pop(ctx); _moderateRecipe(recipe['id'], 'rejected'); },
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Warna latar belakang halaman
-      backgroundColor: const Color(0xFFF8F4F0),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFD4AF37),
-        title: const Text(
-          'Moderasi Resep',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Column(
-        children: [
-          // Panel filter status resep (Pending, Approved, Rejected)
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildFilterChip('Pending', _filterStatus == 'pending', () {
-                    setState(() => _filterStatus = 'pending');
-                    _loadRecipes();
-                  }),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildFilterChip('Approved', _filterStatus == 'approved', () {
-                    setState(() => _filterStatus = 'approved');
-                    _loadRecipes();
-                  }),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildFilterChip('Rejected', _filterStatus == 'rejected', () {
-                    setState(() => _filterStatus = 'rejected');
-                    _loadRecipes();
-                  }),
-                ),
-              ],
-            ),
-          ),
-          // Daftar resep
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _recipes.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.restaurant, size: 64, color: Colors.grey.shade400),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Tidak ada resep',
-                              style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
-                            ),
-                          ],
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadRecipes,
-                        color: const Color(0xFFD4AF37),
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _recipes.length,
-                          itemBuilder: (context, index) {
-                            final recipe = _recipes[index];
-                            return _buildRecipeCard(recipe);
-                          },
-                        ),
-                      ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Membangun tombol filter status dengan tampilan chip
-  Widget _buildFilterChip(String label, bool isSelected, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFD4AF37) : Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey.shade700,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            fontSize: 13,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Membangun kartu resep dengan gambar, informasi, dan tombol aksi (jika pending)
-  Widget _buildRecipeCard(Map<String, dynamic> recipe) {
-    final profile = recipe['profiles'];
-    final username = profile?['username'] ?? 'Unknown';
-    final avatarUrl = profile?['avatar_url'];
-    final category = recipe['categories'];
-    final categoryName = category?['name'] ?? 'Uncategorized';
-    final difficulty = recipe['difficulty'] ?? 'mudah';
-    final difficultyColor = _getDifficultyColor(difficulty);
-    final difficultyLabel = _getDifficultyLabel(difficulty);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFE5BFA5).withValues(alpha: 0.3),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Gambar resep dengan overlay dan badge kategori & tingkat kesulitan
-          if (recipe['image_url'] != null)
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                  child: Image.network(
-                    recipe['image_url'],
-                    height: 200,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      height: 200,
-                      color: Colors.grey.shade200,
-                      child: Icon(Icons.image, size: 50, color: Colors.grey.shade400),
-                    ),
-                  ),
-                ),
-                // Overlay gradien gelap di bagian bawah gambar
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    height: 60,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.6),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                // Badge kategori di kiri bawah
-                Positioned(
-                  left: 12,
-                  bottom: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD4AF37).withValues(alpha: 0.95),
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      categoryName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                // Badge tingkat kesulitan di kanan bawah
-                Positioned(
-                  right: 12,
-                  bottom: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: difficultyColor.withValues(alpha: 0.95),
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      difficultyLabel,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          
-          // Konten informasi resep di bawah gambar
-          Padding(
-            padding: const EdgeInsets.all(16),
+      backgroundColor: const Color(0xFF0F0F0F),
+      body: CustomScrollView(
+        slivers: [
+          _buildAppBar(),
+          SliverToBoxAdapter(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Judul resep
-                Text(
-                  recipe['title'] ?? 'Untitled',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF5C4033),
+                _buildFilterSection(),
+                if (_isLoading)
+                  const Padding(
+                    padding: EdgeInsets.all(60),
+                    child: CircularProgressIndicator(color: Color(0xFFFFD700)),
+                  )
+                else if (_recipes.isEmpty)
+                  _buildEmptyState()
+                else
+                  FadeTransition(opacity: _fadeAnimation, child: _buildRecipeList()),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAppBar() {
+    return SliverAppBar(
+      expandedHeight: 140,
+      pinned: true,
+      backgroundColor: Colors.black,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: Colors.white),
+        onPressed: () => Navigator.pop(context),
+      ),
+      flexibleSpace: FlexibleSpaceBar(
+        background: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(colors: [Color(0xFF1A1A1A), Color(0xFF2D2D2D)]),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 50, 24, 16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFFFF9800), Color(0xFFFFB74D)]),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(Icons.restaurant_rounded, color: Colors.white, size: 24),
                   ),
-                ),
-                const SizedBox(height: 8),
-                
-                // Deskripsi resep (jika tersedia)
-                if (recipe['description'] != null && recipe['description'].toString().isNotEmpty)
-                  Text(
-                    recipe['description'],
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                
-                const SizedBox(height: 12),
-                
-                // Informasi penulis dan waktu memasak
-                Row(
-                  children: [
-                    // Avatar penulis
-                    Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.grey.shade300,
-                        border: Border.all(color: const Color(0xFFE89A6F), width: 2),
-                      ),
-                      child: ClipOval(
-                        child: avatarUrl != null
-                            ? Image.network(
-                                avatarUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) => Icon(
-                                  Icons.person,
-                                  size: 12,
-                                  color: Colors.grey.shade600,
-                                ),
-                              )
-                            : Icon(Icons.person, size: 12, color: Colors.grey.shade600),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Nama penulis
-                    Text(
-                      username,
-                      style: TextStyle(
-                        color: Colors.grey.shade700,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const Spacer(),
-                    // Ikon dan waktu memasak
-                    Icon(Icons.access_time, size: 16, color: Colors.grey.shade600),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${recipe['cooking_time'] ?? 0} min',
-                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                    ),
-                  ],
-                ),
-                
-                // Tombol aksi (Setujui/Tolak) hanya muncul untuk resep dengan status 'pending'
-                if (_filterStatus == 'pending') ...[
-                  const SizedBox(height: 16),
-                  Row(
+                  const SizedBox(width: 16),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Tombol Tolak
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _moderateRecipe(recipe['id'], 'rejected'),
-                          icon: const Icon(Icons.close, size: 18),
-                          label: const Text('Tolak'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                            side: const BorderSide(color: Colors.red),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Tombol Setujui
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _moderateRecipe(recipe['id'], 'approved'),
-                          icon: const Icon(Icons.check, size: 18),
-                          label: const Text('Setujui'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ),
+                      Text('RECIPE MODERATION', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                      Text('Review & Approve', style: TextStyle(color: Color(0xFFFF9800), fontSize: 12)),
                     ],
                   ),
                 ],
-              ],
+              ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterSection() {
+    return Container(
+      margin: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          _buildFilterChip('Pending', 'pending'),
+          _buildFilterChip('Approved', 'approved'),
+          _buildFilterChip('Rejected', 'rejected'),
         ],
       ),
     );
   }
 
-  // Mengembalikan warna berdasarkan tingkat kesulitan resep
-  Color _getDifficultyColor(String difficulty) {
-    switch (difficulty.toLowerCase()) {
-      case 'mudah':
-        return Colors.green;
-      case 'sedang':
-        return Colors.orange;
-      case 'sulit':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
+  Widget _buildFilterChip(String label, String value) {
+    final isSelected = _filterStatus == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () { setState(() => _filterStatus = value); _loadRecipes(); },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            gradient: isSelected ? const LinearGradient(colors: [Color(0xFFFFD700), Color(0xFFFFA500)]) : null,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(label, textAlign: TextAlign.center,
+            style: TextStyle(color: isSelected ? Colors.black : Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
+        ),
+      ),
+    );
   }
 
-  // Mengembalikan label yang lebih rapi berdasarkan tingkat kesulitan
-  String _getDifficultyLabel(String difficulty) {
-    switch (difficulty.toLowerCase()) {
-      case 'mudah':
-        return 'Mudah';
-      case 'sedang':
-        return 'Sedang';
-      case 'sulit':
-        return 'Sulit';
-      default:
-        return difficulty;
-    }
+  Widget _buildRecipeList() {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 80),
+      itemCount: _recipes.length,
+      itemBuilder: (context, index) => _buildRecipeCard(_recipes[index]),
+    );
+  }
+
+  Widget _buildRecipeCard(Map<String, dynamic> recipe) {
+    final profile = recipe['profiles'];
+    final username = profile?['username'] ?? 'Unknown';
+    final categoryName = recipe['categories']?['name'] ?? 'Uncategorized';
+
+    return GestureDetector(
+      onTap: () => _showRecipePreview(recipe),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1E1E),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        child: Column(
+          children: [
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  child: recipe['image_url'] != null
+                      ? Image.network(recipe['image_url'], height: 180, width: double.infinity, fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => _buildPlaceholder())
+                      : _buildPlaceholder(),
+                ),
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)],
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(top: 12, right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFFFFD700), Color(0xFFFFA500)]),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(categoryName, style: const TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                Positioned(bottom: 12, left: 12, right: 12,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(recipe['title'] ?? 'Untitled', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white), maxLines: 2),
+                      const SizedBox(height: 6),
+                      Row(children: [
+                        CircleAvatar(radius: 12, backgroundImage: profile?['avatar_url'] != null ? NetworkImage(profile['avatar_url']) : null,
+                          child: profile?['avatar_url'] == null ? const Icon(Icons.person, size: 14) : null),
+                        const SizedBox(width: 8),
+                        Text(username, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                      ]),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  if (_filterStatus == 'pending')
+                    Row(children: [
+                      Expanded(child: _actionBtn('APPROVE', Icons.check_circle, Colors.green, () => _moderateRecipe(recipe['id'], 'approved'))),
+                      const SizedBox(width: 10),
+                      Expanded(child: _actionBtn('REJECT', Icons.cancel, Colors.red, () => _moderateRecipe(recipe['id'], 'rejected'))),
+                    ]),
+                  if (_filterStatus == 'pending') const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: const Color(0xFF151515), borderRadius: BorderRadius.circular(10)),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.visibility, color: Colors.grey.shade500, size: 16),
+                      const SizedBox(width: 6),
+                      Text('Tap to View Details', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                    ]),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _actionBtn(String label, IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 44,
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, color: Colors.white, size: 18),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildPlaceholder() {
+    return Container(height: 180, color: const Color(0xFF2D2D2D),
+      child: Center(child: Icon(Icons.restaurant_menu, size: 50, color: Colors.grey.shade700)));
+  }
+
+  Widget _buildEmptyState() {
+    return Padding(
+      padding: const EdgeInsets.all(60),
+      child: Column(children: [
+        Icon(Icons.restaurant, size: 60, color: Colors.grey.shade700),
+        const SizedBox(height: 16),
+        Text('No Recipes Found', style: TextStyle(fontSize: 18, color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+      ]),
+    );
+  }
+}
+
+class _RecipePreviewSheet extends StatelessWidget {
+  final Map<String, dynamic> recipe;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+
+  const _RecipePreviewSheet({required this.recipe, required this.onApprove, required this.onReject});
+
+  @override
+  Widget build(BuildContext context) {
+    final tags = (recipe['recipe_tags'] as List?)?.map((rt) => rt['tags']).where((t) => t != null).toList() ?? [];
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.9, minChildSize: 0.5, maxChildSize: 0.95,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF1A1A1A),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(children: [
+            Container(margin: const EdgeInsets.only(top: 12), width: 40, height: 4,
+              decoration: BoxDecoration(color: Colors.grey.shade700, borderRadius: BorderRadius.circular(2))),
+            Expanded(
+              child: ListView(controller: scrollController, padding: const EdgeInsets.all(20), children: [
+                Text(recipe['title'] ?? 'Untitled', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                const SizedBox(height: 16),
+                if (recipe['image_url'] != null)
+                  ClipRRect(borderRadius: BorderRadius.circular(16),
+                    child: Image.network(recipe['image_url'], height: 200, width: double.infinity, fit: BoxFit.cover)),
+                const SizedBox(height: 20),
+                Row(children: [
+                  _infoChip(Icons.schedule, '${recipe['cooking_time'] ?? 0} min', Colors.orange),
+                  const SizedBox(width: 8),
+                  _infoChip(Icons.restaurant, '${recipe['servings'] ?? 0} srv', Colors.green),
+                  const SizedBox(width: 8),
+                  _infoChip(Icons.signal_cellular_alt, recipe['difficulty'] ?? '-', Colors.blue),
+                ]),
+                if (tags.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Wrap(spacing: 6, runSpacing: 6, children: tags.map((t) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: const Color(0xFFFFD700).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
+                    child: Text('#${t['name']}', style: const TextStyle(color: Color(0xFFFFD700), fontSize: 11, fontWeight: FontWeight.bold)),
+                  )).toList()),
+                ],
+                const SizedBox(height: 20),
+                _section('Description', recipe['description'] ?? '-'),
+                const SizedBox(height: 16),
+                _section('Ingredients', recipe['ingredients'] ?? '-'),
+                const SizedBox(height: 16),
+                _section('Instructions', recipe['instructions'] ?? '-'),
+                const SizedBox(height: 80),
+              ]),
+            ),
+            Container(
+              padding: const EdgeInsets.all(20),
+              child: Row(children: [
+                Expanded(child: GestureDetector(onTap: onReject,
+                  child: Container(height: 50, decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(14)),
+                    child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.cancel, color: Colors.white), SizedBox(width: 8),
+                      Text('REJECT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ])))),
+                const SizedBox(width: 12),
+                Expanded(child: GestureDetector(onTap: onApprove,
+                  child: Container(height: 50, decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(14)),
+                    child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.check_circle, color: Colors.white), SizedBox(width: 8),
+                      Text('APPROVE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ])))),
+              ]),
+            ),
+          ]),
+        );
+      },
+    );
+  }
+
+  Widget _infoChip(IconData icon, String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 14, color: color), const SizedBox(width: 4),
+        Text(text, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+      ]),
+    );
+  }
+
+  Widget _section(String title, String content) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFFFFD700))),
+      const SizedBox(height: 8),
+      Container(
+        width: double.infinity, padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: const Color(0xFF252525), borderRadius: BorderRadius.circular(12)),
+        child: Text(content, style: TextStyle(color: Colors.grey.shade300, fontSize: 13, height: 1.5)),
+      ),
+    ]);
   }
 }

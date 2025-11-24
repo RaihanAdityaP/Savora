@@ -3,6 +3,7 @@ import '../utils/supabase_client.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/custom_bottom_nav.dart';
 import '../widgets/recipe_card.dart';
+import '../widgets/theme.dart';
 import 'detail_screen.dart';
 
 class SearchingScreen extends StatefulWidget {
@@ -11,13 +12,7 @@ class SearchingScreen extends StatefulWidget {
   final int? initialTagId;
   final String? initialTagName;
 
-  const SearchingScreen({
-    super.key,
-    this.initialCategoryId,
-    this.initialCategoryName,
-    this.initialTagId,
-    this.initialTagName,
-  });
+  const SearchingScreen({super.key, this.initialCategoryId, this.initialCategoryName, this.initialTagId, this.initialTagName});
 
   @override
   State<SearchingScreen> createState() => _SearchingScreenState();
@@ -31,7 +26,6 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
   String _lastSearchQuery = '';
   String? _userAvatarUrl;
 
-  // Filter states
   int? _selectedCategoryId;
   String? _selectedCategoryName;
   int? _selectedTagId;
@@ -39,11 +33,9 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
   String _sortBy = 'popular';
   bool _followedUsersOnly = false;
 
-  // Available categories & tags
   List<Map<String, dynamic>> _categories = [];
   List<Map<String, dynamic>> _popularTags = [];
 
-  // Animation
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -51,32 +43,18 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    
     _selectedCategoryId = widget.initialCategoryId;
     _selectedCategoryName = widget.initialCategoryName;
     _selectedTagId = widget.initialTagId;
     _selectedTagName = widget.initialTagName;
 
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-    _fadeAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.2),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutCubic,
-    ));
+    _animationController = AnimationController(duration: const Duration(milliseconds: 1000), vsync: this);
+    _fadeAnimation = CurvedAnimation(parent: _animationController, curve: Curves.easeInOut);
+    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic));
 
     _loadUserAvatar();
     _loadCategories();
     _loadPopularTags();
-    
     if (_selectedCategoryId != null || _selectedTagId != null) {
       _searchRecipes('');
     }
@@ -93,15 +71,9 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
     try {
       final userId = supabase.auth.currentUser?.id;
       if (userId != null) {
-        final response = await supabase
-            .from('profiles')
-            .select('avatar_url')
-            .eq('id', userId)
-            .single();
+        final response = await supabase.from('profiles').select('avatar_url').eq('id', userId).single();
         if (!mounted) return;
-        setState(() {
-          _userAvatarUrl = response['avatar_url'];
-        });
+        setState(() => _userAvatarUrl = response['avatar_url']);
       }
     } catch (e) {
       debugPrint('Error loading user avatar: $e');
@@ -110,14 +82,9 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
 
   Future<void> _loadCategories() async {
     try {
-      final response = await supabase
-          .from('categories')
-          .select('id, name')
-          .order('name');
+      final response = await supabase.from('categories').select('id, name').order('name');
       if (!mounted) return;
-      setState(() {
-        _categories = List<Map<String, dynamic>>.from(response);
-      });
+      setState(() => _categories = List<Map<String, dynamic>>.from(response));
     } catch (e) {
       debugPrint('Error loading categories: $e');
     }
@@ -125,14 +92,9 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
 
   Future<void> _loadPopularTags() async {
     try {
-      final response = await supabase
-          .from('popular_tags')
-          .select('id, name, usage_count')
-          .limit(15);
+      final response = await supabase.from('popular_tags').select('id, name, usage_count').limit(15);
       if (!mounted) return;
-      setState(() {
-        _popularTags = List<Map<String, dynamic>>.from(response);
-      });
+      setState(() => _popularTags = List<Map<String, dynamic>>.from(response));
     } catch (e) {
       debugPrint('Error loading tags: $e');
     }
@@ -143,39 +105,21 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
       _isLoading = true;
       _lastSearchQuery = query.trim();
     });
-
     try {
       final userId = supabase.auth.currentUser?.id;
-      
-      var queryBuilder = supabase
-          .from('recipes')
-          .select('''
-            *, 
-            profiles!recipes_user_id_fkey(id, username, avatar_url, role),
-            categories(id, name),
-            recipe_tags(tags(id, name))
-          ''')
-          .eq('status', 'approved');
+      var queryBuilder = supabase.from('recipes').select('*, profiles!recipes_user_id_fkey(id, username, avatar_url, role), categories(id, name), recipe_tags(tags(id, name))').eq('status', 'approved');
 
       if (_lastSearchQuery.isNotEmpty) {
         final safeQuery = _lastSearchQuery.replaceAll('%', '\\%').replaceAll('_', '\\_');
         queryBuilder = queryBuilder.ilike('title', '%$safeQuery%');
       }
-
       if (_selectedCategoryId != null) {
         queryBuilder = queryBuilder.eq('category_id', _selectedCategoryId!);
       }
 
       if (_followedUsersOnly && userId != null) {
-        final followedResponse = await supabase
-            .from('follows')
-            .select('following_id')
-            .eq('follower_id', userId);
-        
-        final followedIds = followedResponse
-            .map((f) => f['following_id'] as String)
-            .toList();
-        
+        final followedResponse = await supabase.from('follows').select('following_id').eq('follower_id', userId);
+        final followedIds = followedResponse.map((f) => f['following_id'] as String).toList();
         if (followedIds.isNotEmpty) {
           queryBuilder = queryBuilder.filter('user_id', 'in', '(${followedIds.join(',')})');
         } else {
@@ -205,7 +149,6 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
       if (!mounted) return;
 
       var recipes = List<Map<String, dynamic>>.from(response);
-
       if (_selectedTagId != null) {
         recipes = recipes.where((recipe) {
           final recipeTags = recipe['recipe_tags'] as List<dynamic>?;
@@ -215,11 +158,7 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
       }
 
       for (var recipe in recipes) {
-        final ratingResponse = await supabase
-            .from('recipe_ratings')
-            .select('rating')
-            .eq('recipe_id', recipe['id']);
-        
+        final ratingResponse = await supabase.from('recipe_ratings').select('rating').eq('recipe_id', recipe['id']);
         if (ratingResponse.isNotEmpty) {
           final total = ratingResponse.fold<num>(0, (sum, r) => sum + (r['rating'] as num));
           _recipeRatings[recipe['id']] = (total / ratingResponse.length).toDouble();
@@ -253,249 +192,266 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        maxChildSize: 0.9,
-        minChildSize: 0.5,
-        expand: false,
-        builder: (context, scrollController) => Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: AppTheme.backgroundLight,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: DraggableScrollableSheet(
+          initialChildSize: 0.75,
+          maxChildSize: 0.92,
+          minChildSize: 0.5,
+          expand: false,
+          builder: (context, scrollController) => Container(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            child: Column(
+              children: [
+                Center(
+                  child: Container(
+                    width: 48,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Filter & Urutkan',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF264653),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _selectedCategoryId = null;
-                        _selectedCategoryName = null;
-                        _selectedTagId = null;
-                        _selectedTagName = null;
-                        _sortBy = 'popular';
-                        _followedUsersOnly = false;
-                      });
-                      Navigator.pop(context);
-                      _searchRecipes(_lastSearchQuery);
-                    },
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFFE76F51),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    ),
-                    child: const Text('Reset', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
+                const SizedBox(height: 24),
+                Row(
                   children: [
-                    const Text(
-                      'Urutkan Berdasarkan',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF264653),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _buildSortChip('Terpopuler', 'popular', Icons.trending_up),
-                        _buildSortChip('Terbaru', 'newest', Icons.fiber_new),
-                        _buildSortChip('Rating Tertinggi', 'rating', Icons.star),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
                     Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            const Color(0xFFE76F51).withValues(alpha: 0.1),
-                            const Color(0xFFF4A261).withValues(alpha: 0.1),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: const Color(0xFFE76F51).withValues(alpha: 0.3),
-                          width: 1.5,
-                        ),
+                        gradient: AppTheme.accentGradient,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: AppTheme.buttonShadow,
                       ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE76F51).withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.people, color: Color(0xFFE76F51), size: 20),
-                          ),
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: Text(
-                              'Hanya dari yang diikuti',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF264653),
-                              ),
-                            ),
-                          ),
-                          Switch(
-                            value: _followedUsersOnly,
-                            onChanged: (value) {
-                              setState(() => _followedUsersOnly = value);
-                            },
-                            activeThumbColor: const Color(0xFFE76F51),
-                          ),
-                        ],
+                      child: const Icon(Icons.tune, color: Colors.white, size: 26),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Text('Filter & Urutkan', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: [AppTheme.primaryCoral.withValues(alpha: 0.15), AppTheme.primaryOrange.withValues(alpha: 0.15)]),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.primaryCoral.withValues(alpha: 0.3)),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    const Text(
-                      'Kategori',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF264653),
+                      child: TextButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _selectedCategoryId = null;
+                            _selectedCategoryName = null;
+                            _selectedTagId = null;
+                            _selectedTagName = null;
+                            _sortBy = 'popular';
+                            _followedUsersOnly = false;
+                          });
+                          Navigator.pop(context);
+                          _searchRecipes(_lastSearchQuery);
+                        },
+                        icon: const Icon(Icons.refresh_rounded, size: 18, color: AppTheme.primaryCoral),
+                        label: const Text('Reset', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryCoral)),
+                        style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10)),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _categories.map((cat) {
-                        final isSelected = _selectedCategoryId == cat['id'];
-                        return FilterChip(
-                          label: Text(cat['name'] ?? ''),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                _selectedCategoryId = cat['id'];
-                                _selectedCategoryName = cat['name'];
-                              } else {
-                                _selectedCategoryId = null;
-                                _selectedCategoryName = null;
-                              }
-                            });
-                          },
-                          backgroundColor: Colors.grey.shade100,
-                          selectedColor: const Color(0xFFE76F51).withValues(alpha: 0.2),
-                          checkmarkColor: const Color(0xFFE76F51),
-                          labelStyle: TextStyle(
-                            color: isSelected ? const Color(0xFFE76F51) : Colors.grey.shade700,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 24),
-
-                    const Text(
-                      'Tags Populer',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF264653),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _popularTags.map((tag) {
-                        final isSelected = _selectedTagId == tag['id'];
-                        return FilterChip(
-                          label: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text('#${tag['name'] ?? ''}'),
-                              const SizedBox(width: 4),
-                              Text(
-                                '(${tag['usage_count'] ?? 0})',
-                                style: const TextStyle(fontSize: 10),
-                              ),
-                            ],
-                          ),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                _selectedTagId = tag['id'];
-                                _selectedTagName = tag['name'];
-                              } else {
-                                _selectedTagId = null;
-                                _selectedTagName = null;
-                              }
-                            });
-                          },
-                          backgroundColor: Colors.grey.shade100,
-                          selectedColor: const Color(0xFFF4A261).withValues(alpha: 0.2),
-                          checkmarkColor: const Color(0xFFF4A261),
-                          labelStyle: TextStyle(
-                            color: isSelected ? const Color(0xFFF4A261) : Colors.grey.shade700,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        );
-                      }).toList(),
                     ),
                   ],
                 ),
-              ),
-
-              const SizedBox(height: 16),
-              
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFE76F51).withValues(alpha: 0.4),
-                        blurRadius: 12,
-                        offset: const Offset(0, 6),
+                const SizedBox(height: 24),
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    physics: const BouncingScrollPhysics(),
+                    children: [
+                      // Sort Section
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: [AppTheme.primaryTeal.withValues(alpha: 0.08), AppTheme.primaryTeal.withValues(alpha: 0.04)]),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.2), width: 1.5),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(color: AppTheme.primaryTeal.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
+                                  child: const Icon(Icons.sort_rounded, color: AppTheme.primaryTeal, size: 20),
+                                ),
+                                const SizedBox(width: 10),
+                                const Text('Urutkan Berdasarkan', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            Wrap(spacing: 10, runSpacing: 10, children: [
+                              _buildSortChip('Terpopuler', 'popular', Icons.trending_up),
+                              _buildSortChip('Terbaru', 'newest', Icons.fiber_new),
+                              _buildSortChip('Rating Tertinggi', 'rating', Icons.star),
+                            ]),
+                          ],
+                        ),
                       ),
+                      const SizedBox(height: 20),
+
+                      // Followed Users Filter
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: [AppTheme.primaryOrange.withValues(alpha: 0.08), AppTheme.primaryOrange.withValues(alpha: 0.04)]),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: AppTheme.primaryOrange.withValues(alpha: 0.3), width: 1.5),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(color: AppTheme.primaryOrange.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
+                              child: const Icon(Icons.people_rounded, color: AppTheme.primaryOrange, size: 24),
+                            ),
+                            const SizedBox(width: 14),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Dari yang Diikuti', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                                  SizedBox(height: 2),
+                                  Text('Hanya tampilkan resep dari pengguna yang Anda ikuti', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Transform.scale(
+                              scale: 0.95,
+                              child: Switch(
+                                value: _followedUsersOnly,
+                                onChanged: (value) => setState(() => _followedUsersOnly = value),
+                                activeThumbColor: AppTheme.primaryOrange,
+                                activeTrackColor: AppTheme.primaryOrange.withValues(alpha: 0.4),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Categories Section
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: [AppTheme.primaryCoral.withValues(alpha: 0.08), AppTheme.primaryCoral.withValues(alpha: 0.04)]),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: AppTheme.primaryCoral.withValues(alpha: 0.2), width: 1.5),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(color: AppTheme.primaryCoral.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
+                                  child: const Icon(Icons.category_rounded, color: AppTheme.primaryCoral, size: 20),
+                                ),
+                                const SizedBox(width: 10),
+                                const Text('Kategori', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: _categories.map((cat) {
+                                final isSelected = _selectedCategoryId == cat['id'];
+                                return _buildFilterChip(
+                                  label: cat['name'] ?? '',
+                                  isSelected: isSelected,
+                                  icon: Icons.restaurant_menu_rounded,
+                                  color: AppTheme.primaryCoral,
+                                  onTap: () {
+                                    setState(() {
+                                      if (isSelected) {
+                                        _selectedCategoryId = null;
+                                        _selectedCategoryName = null;
+                                      } else {
+                                        _selectedCategoryId = cat['id'];
+                                        _selectedCategoryName = cat['name'];
+                                      }
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Tags Section
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: [AppTheme.primaryYellow.withValues(alpha: 0.08), AppTheme.primaryYellow.withValues(alpha: 0.04)]),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: AppTheme.primaryYellow.withValues(alpha: 0.3), width: 1.5),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(color: AppTheme.primaryYellow.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(10)),
+                                  child: const Icon(Icons.local_offer_rounded, color: AppTheme.primaryDark, size: 20),
+                                ),
+                                const SizedBox(width: 10),
+                                const Text('Tags Populer', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: _popularTags.map((tag) {
+                                final isSelected = _selectedTagId == tag['id'];
+                                return _buildFilterChip(
+                                  label: '#${tag['name'] ?? ''}',
+                                  count: tag['usage_count'],
+                                  isSelected: isSelected,
+                                  icon: Icons.tag_rounded,
+                                  color: AppTheme.primaryYellow,
+                                  onTap: () {
+                                    setState(() {
+                                      if (isSelected) {
+                                        _selectedTagId = null;
+                                        _selectedTagName = null;
+                                      } else {
+                                        _selectedTagId = tag['id'];
+                                        _selectedTagName = tag['name'];
+                                      }
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                     ],
                   ),
-                  child: ElevatedButton(
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  height: 56,
+                  decoration: AppTheme.primaryButtonDecoration,
+                  child: ElevatedButton.icon(
                     onPressed: () {
                       Navigator.pop(context);
                       _searchRecipes(_lastSearchQuery);
@@ -503,22 +459,14 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
-                    child: const Text(
-                      'Terapkan Filter',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
+                    icon: const Icon(Icons.search_rounded, color: Colors.white, size: 24),
+                    label: const Text('Terapkan Filter', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -527,26 +475,69 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
 
   Widget _buildSortChip(String label, String value, IconData icon) {
     final isSelected = _sortBy == value;
-    return ChoiceChip(
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: isSelected ? Colors.white : const Color(0xFF264653)),
-          const SizedBox(width: 6),
-          Text(label),
-        ],
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          if (!isSelected) {
+            setState(() => _sortBy = value);
+          }
+        },
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: isSelected ? AppTheme.tealGradient : null,
+            color: isSelected ? null : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isSelected ? AppTheme.primaryTeal : Colors.grey.shade300, width: isSelected ? 2 : 1.5),
+            boxShadow: isSelected ? [BoxShadow(color: AppTheme.primaryTeal.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 4))] : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: isSelected ? Colors.white : AppTheme.textPrimary),
+              const SizedBox(width: 8),
+              Text(label, style: TextStyle(color: isSelected ? Colors.white : AppTheme.textPrimary, fontWeight: isSelected ? FontWeight.bold : FontWeight.w600, fontSize: 14)),
+            ],
+          ),
+        ),
       ),
-      selected: isSelected,
-      onSelected: (selected) {
-        if (selected) {
-          setState(() => _sortBy = value);
-        }
-      },
-      backgroundColor: Colors.grey.shade100,
-      selectedColor: const Color(0xFFE76F51),
-      labelStyle: TextStyle(
-        color: isSelected ? Colors.white : const Color(0xFF264653),
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+    );
+  }
+
+  Widget _buildFilterChip({required String label, int? count, required bool isSelected, required IconData icon, required Color color, required VoidCallback onTap}) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            gradient: isSelected ? LinearGradient(colors: [color, color.withValues(alpha: 0.8)]) : null,
+            color: isSelected ? null : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isSelected ? color : Colors.grey.shade300, width: isSelected ? 2 : 1.5),
+            boxShadow: isSelected ? [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 3))] : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: isSelected ? Colors.white : color),
+              const SizedBox(width: 6),
+              Text(label, style: TextStyle(color: isSelected ? Colors.white : AppTheme.textPrimary, fontWeight: isSelected ? FontWeight.bold : FontWeight.w600, fontSize: 13)),
+              if (count != null) ...[
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(color: isSelected ? Colors.white.withValues(alpha: 0.3) : color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+                  child: Text('$count', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isSelected ? Colors.white : color)),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -554,48 +545,50 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     int activeFilters = 0;
-    if (_selectedCategoryId != null) activeFilters++;
-    if (_selectedTagId != null) activeFilters++;
-    if (_followedUsersOnly) activeFilters++;
-    if (_sortBy != 'popular') activeFilters++;
+    if (_selectedCategoryId != null) {
+      activeFilters++;
+    }
+    if (_selectedTagId != null) {
+      activeFilters++;
+    }
+    if (_followedUsersOnly) {
+      activeFilters++;
+    }
+    if (_sortBy != 'popular') {
+      activeFilters++;
+    }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: const CustomAppBar(showBackButton: true),
+      backgroundColor: AppTheme.backgroundLight,
+      appBar: const CustomAppBar(showBackButton: false),
       body: Column(
         children: [
+          // Search Bar
           Container(
             margin: const EdgeInsets.all(20),
             child: Row(
               children: [
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: const Color(0xFFE76F51).withValues(alpha: 0.3),
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: AppTheme.primaryCoral.withValues(alpha: 0.3), width: 2),
+                      boxShadow: [BoxShadow(color: AppTheme.primaryCoral.withValues(alpha: 0.1), blurRadius: 15, offset: const Offset(0, 5))],
                     ),
                     child: TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
-                        hintText: 'Cari resep...',
-                        hintStyle: TextStyle(color: Colors.grey.shade400),
+                        hintText: 'Cari resep lezat...',
+                        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 15),
                         border: InputBorder.none,
-                        prefixIcon: const Icon(Icons.search, color: Color(0xFFE76F51)),
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Icon(Icons.search_rounded, color: AppTheme.primaryCoral, size: 24),
+                        ),
                         suffixIcon: _searchController.text.isNotEmpty
                             ? IconButton(
-                                icon: Icon(Icons.clear, color: Colors.grey.shade600),
+                                icon: Icon(Icons.clear_rounded, color: Colors.grey.shade600),
                                 onPressed: () {
                                   _searchController.clear();
                                   _searchRecipes('');
@@ -603,8 +596,9 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
                                 },
                               )
                             : null,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                       ),
-                      style: const TextStyle(color: Color(0xFF264653)),
+                      style: const TextStyle(color: AppTheme.textPrimary, fontSize: 15),
                       onChanged: (value) {
                         setState(() {});
                         Future.delayed(const Duration(milliseconds: 500), () {
@@ -617,66 +611,35 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
                   ),
                 ),
                 const SizedBox(width: 12),
-                
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
                     Container(
-                      width: 54,
-                      height: 54,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFE76F51).withValues(alpha: 0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
+                      width: 56,
+                      height: 56,
+                      decoration: AppTheme.primaryButtonDecoration,
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
                           onTap: _showFilterBottomSheet,
                           borderRadius: BorderRadius.circular(16),
-                          child: const Icon(Icons.tune, color: Colors.white, size: 24),
+                          child: const Icon(Icons.tune_rounded, color: Colors.white, size: 26),
                         ),
                       ),
                     ),
                     if (activeFilters > 0)
                       Positioned(
-                        top: -4,
-                        right: -4,
+                        top: -6,
+                        right: -6,
                         child: Container(
-                          padding: const EdgeInsets.all(6),
+                          padding: const EdgeInsets.all(7),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFF3B30), Color(0xFFFF6B6B)],
-                            ),
+                            gradient: const LinearGradient(colors: [Color(0xFFFF3B30), Color(0xFFFF6B6B)]),
                             shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.red.withValues(alpha: 0.4),
-                                blurRadius: 6,
-                              ),
-                            ],
+                            boxShadow: [BoxShadow(color: Colors.red.withValues(alpha: 0.5), blurRadius: 8, spreadRadius: 1)],
                           ),
-                          constraints: const BoxConstraints(
-                            minWidth: 22,
-                            minHeight: 22,
-                          ),
-                          child: Text(
-                            '$activeFilters',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
+                          constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                          child: Text('$activeFilters', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold, height: 1), textAlign: TextAlign.center),
                         ),
                       ),
                   ],
@@ -685,51 +648,47 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
             ),
           ),
 
+          // Active Filters
           if (activeFilters > 0)
             Container(
-              height: 44,
+              height: 48,
               margin: const EdgeInsets.only(bottom: 12),
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
+                physics: const BouncingScrollPhysics(),
                 children: [
                   if (_selectedCategoryName != null)
-                    _buildActiveFilterChip(
-                      _selectedCategoryName!,
-                      Icons.category,
-                      () {
-                        setState(() {
-                          _selectedCategoryId = null;
-                          _selectedCategoryName = null;
-                        });
-                        _searchRecipes(_lastSearchQuery);
-                      },
-                    ),
+                    _buildActiveFilterChip(_selectedCategoryName!, Icons.category_rounded, AppTheme.primaryCoral, () {
+                      setState(() {
+                        _selectedCategoryId = null;
+                        _selectedCategoryName = null;
+                      });
+                      _searchRecipes(_lastSearchQuery);
+                    }),
                   if (_selectedTagName != null)
-                    _buildActiveFilterChip(
-                      '#$_selectedTagName',
-                      Icons.tag,
-                      () {
-                        setState(() {
-                          _selectedTagId = null;
-                          _selectedTagName = null;
-                        });
-                        _searchRecipes(_lastSearchQuery);
-                      },
-                    ),
+                    _buildActiveFilterChip('#$_selectedTagName', Icons.tag_rounded, AppTheme.primaryYellow, () {
+                      setState(() {
+                        _selectedTagId = null;
+                        _selectedTagName = null;
+                      });
+                      _searchRecipes(_lastSearchQuery);
+                    }),
                   if (_followedUsersOnly)
-                    _buildActiveFilterChip(
-                      'Dari yang diikuti',
-                      Icons.people,
-                      () {
-                        setState(() => _followedUsersOnly = false);
-                        _searchRecipes(_lastSearchQuery);
-                      },
-                    ),
+                    _buildActiveFilterChip('Dari yang diikuti', Icons.people_rounded, AppTheme.primaryOrange, () {
+                      setState(() => _followedUsersOnly = false);
+                      _searchRecipes(_lastSearchQuery);
+                    }),
+                  if (_sortBy != 'popular')
+                    _buildActiveFilterChip(_sortBy == 'newest' ? 'Terbaru' : 'Rating Tertinggi', Icons.sort_rounded, AppTheme.primaryTeal, () {
+                      setState(() => _sortBy = 'popular');
+                      _searchRecipes(_lastSearchQuery);
+                    }),
                 ],
               ),
             ),
 
+          // Results
           Expanded(
             child: _isLoading
                 ? Center(
@@ -737,109 +696,34 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
-                            ),
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFE76F51).withValues(alpha: 0.4),
-                                blurRadius: 20,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
-                          ),
-                          child: const CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 3,
-                          ),
+                          padding: const EdgeInsets.all(28),
+                          decoration: BoxDecoration(gradient: AppTheme.accentGradient, borderRadius: BorderRadius.circular(26), boxShadow: AppTheme.buttonShadow),
+                          child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 3.5),
                         ),
-                        const SizedBox(height: 24),
-                        Text(
-                          'Mencari resep...',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade700,
-                          ),
-                        ),
+                        const SizedBox(height: 26),
+                        const Text('Mencari resep...', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
                       ],
                     ),
                   )
                 : _searchResults.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.search_off, size: 80, color: Colors.grey.shade300),
-                            const SizedBox(height: 16),
-                            Text(
-                              _lastSearchQuery.isNotEmpty || activeFilters > 0
-                                  ? 'Tidak ditemukan resep'
-                                  : 'Cari resep favoritmu',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            if (activeFilters > 0) ...[
-                              const SizedBox(height: 16),
-                              Container(
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xFFE76F51), Color(0xFFF4A261)],
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: TextButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      _selectedCategoryId = null;
-                                      _selectedCategoryName = null;
-                                      _selectedTagId = null;
-                                      _selectedTagName = null;
-                                      _sortBy = 'popular';
-                                      _followedUsersOnly = false;
-                                    });
-                                    _searchRecipes(_lastSearchQuery);
-                                  },
-                                  child: const Text(
-                                    'Reset Filter',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      )
+                    ? _buildEmptyState(activeFilters)
                     : FadeTransition(
                         opacity: _fadeAnimation,
                         child: SlideTransition(
                           position: _slideAnimation,
                           child: ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                            physics: const BouncingScrollPhysics(),
                             itemCount: _searchResults.length,
                             itemBuilder: (context, index) {
                               final recipe = _searchResults[index];
                               return RecipeCard(
                                 recipe: recipe,
                                 rating: _recipeRatings[recipe['id']],
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => DetailScreen(recipeId: recipe['id'].toString()),
-                                    ),
-                                  );
-                                },
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => DetailScreen(recipeId: recipe['id'].toString())),
+                                ),
                               );
                             },
                           ),
@@ -848,56 +732,119 @@ class _SearchingScreenState extends State<SearchingScreen> with SingleTickerProv
           ),
         ],
       ),
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: 1,
-        avatarUrl: _userAvatarUrl,
-      ),
+      bottomNavigationBar: CustomBottomNav(currentIndex: 1, avatarUrl: _userAvatarUrl),
     );
   }
 
-  Widget _buildActiveFilterChip(String label, IconData icon, VoidCallback onRemove) {
+  Widget _buildActiveFilterChip(String label, IconData icon, Color color, VoidCallback onRemove) {
     return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      margin: const EdgeInsets.only(right: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFFE76F51).withValues(alpha: 0.15),
-            const Color(0xFFF4A261).withValues(alpha: 0.15),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFE76F51).withValues(alpha: 0.4),
-          width: 1.5,
-        ),
+        gradient: LinearGradient(colors: [color.withValues(alpha: 0.15), color.withValues(alpha: 0.1)]),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 2),
+        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.15), blurRadius: 6, offset: const Offset(0, 2))],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: const Color(0xFFE76F51)),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFFE76F51),
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-            ),
+          Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
+            child: Icon(icon, size: 16, color: color),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
+          Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
+          const SizedBox(width: 8),
           GestureDetector(
             onTap: onRemove,
             child: Container(
-              padding: const EdgeInsets.all(2),
+              padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: const Color(0xFFE76F51).withValues(alpha: 0.2),
+                gradient: LinearGradient(colors: [color, color.withValues(alpha: 0.8)]),
                 shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 4)],
               ),
-              child: const Icon(Icons.close, size: 14, color: Color(0xFFE76F51)),
+              child: const Icon(Icons.close_rounded, size: 14, color: Colors.white),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(int activeFilters) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TweenAnimationBuilder<double>(
+              duration: const Duration(milliseconds: 1400),
+              tween: Tween(begin: 0.0, end: 1.0),
+              curve: Curves.elasticOut,
+              builder: (context, value, child) {
+                return Transform.scale(
+                  scale: value,
+                  child: Container(
+                    width: 140,
+                    height: 140,
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.cardGradient,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _lastSearchQuery.isNotEmpty || activeFilters > 0 ? Icons.search_off_rounded : Icons.manage_search_rounded,
+                      size: 70,
+                      color: AppTheme.primaryCoral,
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 28),
+            Text(
+              _lastSearchQuery.isNotEmpty || activeFilters > 0 ? 'Tidak Ditemukan Resep' : 'Mulai Pencarian',
+              style: const TextStyle(fontSize: 24, color: AppTheme.textPrimary, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _lastSearchQuery.isNotEmpty || activeFilters > 0 ? 'Coba kata kunci lain atau ubah filter pencarian' : 'Temukan ribuan resep lezat\ndengan mudah dan cepat',
+              style: AppTheme.bodyLarge.copyWith(color: AppTheme.textSecondary, height: 1.6),
+              textAlign: TextAlign.center,
+            ),
+            if (activeFilters > 0) ...[
+              const SizedBox(height: 28),
+              Container(
+                decoration: AppTheme.primaryButtonDecoration,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _selectedCategoryId = null;
+                      _selectedCategoryName = null;
+                      _selectedTagId = null;
+                      _selectedTagName = null;
+                      _sortBy = 'popular';
+                      _followedUsersOnly = false;
+                    });
+                    _searchRecipes(_lastSearchQuery);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 22),
+                  label: const Text('Reset Semua Filter', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
