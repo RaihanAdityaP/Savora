@@ -13,12 +13,17 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  debugPrint('Starting Savora app...');
+  
   await Supabase.initialize(
     url: 'https://risxgbbsxuerozzsaxzb.supabase.co',
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpc3hnYmJzeHVlcm96enNheHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5ODc2MjAsImV4cCI6MjA3NTU2MzYyMH0.Gr2-m11pdelRgjy4YKuMzj2VDc_92hH3U0vtw2MNwbw',
   );
   
+  debugPrint('Supabase initialized');
+  
   // Initialize notification service
+  debugPrint('Initializing notification service...');
   await NotificationService().initialize();
   
   // Check banned status
@@ -59,10 +64,15 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     
+    debugPrint('MyApp initState called');
+    
     // Setup notification listener jika user sudah login
     final userId = supabase.auth.currentUser?.id;
     if (userId != null) {
+      debugPrint('User logged in: $userId');
       NotificationService().setupRealtimeListener(userId);
+    } else {
+      debugPrint('No user logged in');
     }
   }
 
@@ -87,6 +97,8 @@ class _MyAppState extends State<MyApp> {
           : const HomeScreen(),
       // Define routes untuk navigation dari notifikasi
       onGenerateRoute: (settings) {
+        debugPrint('Route requested: ${settings.name}');
+        
         // Handle route dari notification
         if (settings.name == '/recipe') {
           final recipeId = settings.arguments as String?;

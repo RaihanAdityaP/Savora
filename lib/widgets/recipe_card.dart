@@ -65,7 +65,6 @@ class _RecipeCardState extends State<RecipeCard> {
         return;
       }
 
-      // Load user's boards
       final boards = await supabase
           .from('recipe_boards')
           .select('id, name, description')

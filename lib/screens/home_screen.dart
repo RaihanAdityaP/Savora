@@ -23,6 +23,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   List<Map<String, dynamic>> _popularRecipes = [];
   final Map<String, double> _recipeRatings = {};
   RealtimeChannel? _bannedChannel;
+  RealtimeChannel? _profileStatsChannel; // Channel untuk mendengarkan perubahan stats
   
   int _myRecipesCount = 0;
   int _bookmarksCount = 0;
@@ -67,13 +68,45 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _loadUserStats();
     _loadPopularRecipes();
     _setupBannedListener();
+    _setupProfileStatsListener(); // Setup listener untuk stats
   }
 
   @override
   void dispose() {
     _bannedChannel?.unsubscribe();
+    _profileStatsChannel?.unsubscribe(); // Unsubscribe stats listener
     _animationController.dispose();
     super.dispose();
+  }
+
+  // Listener baru untuk mendeteksi perubahan stats di tabel profiles
+  void _setupProfileStatsListener() {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    _profileStatsChannel = supabase
+        .channel('profile_stats_$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'profiles',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: userId,
+          ),
+          callback: (payload) {
+            // Update stats ketika ada perubahan di tabel profiles
+            if (mounted) {
+              setState(() {
+                _myRecipesCount = payload.newRecord['total_recipes'] ?? 0;
+                _bookmarksCount = payload.newRecord['total_bookmarks'] ?? 0;
+                _followersCount = payload.newRecord['total_followers'] ?? 0;
+              });
+            }
+          },
+        )
+        .subscribe();
   }
 
   void _setupBannedListener() {
