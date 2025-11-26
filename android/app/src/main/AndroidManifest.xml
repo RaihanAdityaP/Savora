@@ -34,61 +34,68 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- DEEP LINK - Home -->
+            <!-- DEEP LINK - Home (savora://home) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="savora" />
-                <data android:host="home" />
+                <data 
+                    android:scheme="savora"
+                    android:host="home" />
             </intent-filter>
 
-            <!-- DEEP LINK - Recipe Detail -->
+            <!-- DEEP LINK - Recipe Detail (savora://recipe/123) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="savora" />
-                <data android:host="recipe" />
-                <data android:pathPrefix="/" />
+                <data 
+                    android:scheme="savora"
+                    android:host="recipe"
+                    android:pathPrefix="/" />
             </intent-filter>
 
-            <!-- DEEP LINK - User Profile -->
+            <!-- DEEP LINK - User Profile (savora://profile/user123) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="savora" />
-                <data android:host="profile" />
-                <data android:pathPrefix="/" />
+                <data 
+                    android:scheme="savora"
+                    android:host="profile"
+                    android:pathPrefix="/" />
             </intent-filter>
 
-            <!-- DEEP LINK - Search -->
+            <!-- DEEP LINK - Search (savora://search) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="savora" />
-                <data android:host="search" />
+                <data 
+                    android:scheme="savora"
+                    android:host="search" />
             </intent-filter>
 
-            <!-- HTTPS DEEP LINK (App Links) -->
+            <!-- HTTPS DEEP LINK - Recipe (https://savora.app/recipe/123) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" />
-                <data android:host="savora.app" />
-                <data android:pathPrefix="/recipe/" />
+                <data 
+                    android:scheme="https"
+                    android:host="savora.app"
+                    android:pathPrefix="/recipe/" />
             </intent-filter>
 
+            <!-- HTTPS DEEP LINK - Profile (https://savora.app/profile/user123) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" />
-                <data android:host="savora.app" />
-                <data android:pathPrefix="/profile/" />
+                <data 
+                    android:scheme="https"
+                    android:host="savora.app"
+                    android:pathPrefix="/profile/" />
             </intent-filter>
 
             <!-- NOTIFICATION CLICK -->
