@@ -4,10 +4,11 @@ import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/detail_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/searching_screen.dart';
 import 'utils/supabase_client.dart';
 import 'services/notification_service.dart';
 
-// Global navigator key untuk navigation dari notification
+// Global navigator key untuk navigation dari notification dan deep link
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
@@ -95,9 +96,46 @@ class _MyAppState extends State<MyApp> {
       home: supabase.auth.currentUser == null 
           ? const LoginScreen() 
           : const HomeScreen(),
-      // Define routes untuk navigation dari notifikasi
+      // Define routes untuk navigation dari notifikasi dan deep link
       onGenerateRoute: (settings) {
         debugPrint('Route requested: ${settings.name}');
+        
+        // Parse deep link dari route
+        final uri = Uri.parse(settings.name ?? '');
+        
+        // Handle deep link: savora://recipe/RECIPE_ID
+        if (uri.scheme == 'savora' && uri.host == 'recipe') {
+          final recipeId = uri.pathSegments.isNotEmpty ? uri.pathSegments[0] : null;
+          if (recipeId != null) {
+            return MaterialPageRoute(
+              builder: (context) => DetailScreen(recipeId: recipeId),
+            );
+          }
+        }
+        
+        // Handle deep link: savora://profile/USER_ID
+        if (uri.scheme == 'savora' && uri.host == 'profile') {
+          final userId = uri.pathSegments.isNotEmpty ? uri.pathSegments[0] : null;
+          if (userId != null) {
+            return MaterialPageRoute(
+              builder: (context) => ProfileScreen(userId: userId),
+            );
+          }
+        }
+        
+        // Handle deep link: savora://search
+        if (uri.scheme == 'savora' && uri.host == 'search') {
+          return MaterialPageRoute(
+            builder: (context) => const SearchingScreen(),
+          );
+        }
+        
+        // Handle deep link: savora://home
+        if (uri.scheme == 'savora' && uri.host == 'home') {
+          return MaterialPageRoute(
+            builder: (context) => const HomeScreen(),
+          );
+        }
         
         // Handle route dari notification
         if (settings.name == '/recipe') {
