@@ -34,8 +34,10 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- DEEP LINK - Home (savora://home) -->
-            <intent-filter android:autoVerify="true">
+            <!-- ==================== DEEP LINKS (savora://) ==================== -->
+            
+            <!-- Home (savora://home) -->
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
@@ -44,8 +46,8 @@
                     android:host="home" />
             </intent-filter>
 
-            <!-- DEEP LINK - Recipe Detail (savora://recipe/123) -->
-            <intent-filter android:autoVerify="true">
+            <!-- Recipe Detail (savora://recipe/123) -->
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
@@ -55,8 +57,8 @@
                     android:pathPrefix="/" />
             </intent-filter>
 
-            <!-- DEEP LINK - User Profile (savora://profile/user123) -->
-            <intent-filter android:autoVerify="true">
+            <!-- User Profile (savora://profile/user123) -->
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
@@ -66,8 +68,8 @@
                     android:pathPrefix="/" />
             </intent-filter>
 
-            <!-- DEEP LINK - Search (savora://search) -->
-            <intent-filter android:autoVerify="true">
+            <!-- Search (savora://search) -->
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
@@ -76,35 +78,61 @@
                     android:host="search" />
             </intent-filter>
 
-            <!-- HTTPS DEEP LINK - Recipe (https://savora.app/recipe/123) -->
+            <!-- ==================== UNIVERSAL LINKS (https://) ==================== -->
+            
+            <!-- Recipe (https://savora-nine.vercel.app/recipe/123) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data 
                     android:scheme="https"
-                    android:host="savora.app"
+                    android:host="savora-nine.vercel.app"
                     android:pathPrefix="/recipe/" />
             </intent-filter>
 
-            <!-- HTTPS DEEP LINK - Profile (https://savora.app/profile/user123) -->
+            <!-- Profile (https://savora-nine.vercel.app/profile/user123) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data 
                     android:scheme="https"
-                    android:host="savora.app"
+                    android:host="savora-nine.vercel.app"
                     android:pathPrefix="/profile/" />
             </intent-filter>
 
-            <!-- NOTIFICATION CLICK -->
+            <!-- Home (https://savora-nine.vercel.app/) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data 
+                    android:scheme="https"
+                    android:host="savora-nine.vercel.app"
+                    android:path="/" />
+            </intent-filter>
+
+            <!-- Search (https://savora-nine.vercel.app/search) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data 
+                    android:scheme="https"
+                    android:host="savora-nine.vercel.app"
+                    android:path="/search" />
+            </intent-filter>
+
+            <!-- ==================== NOTIFICATION CLICK ==================== -->
             <intent-filter>
                 <action android:name="FLUTTER_NOTIFICATION_CLICK" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 
+        <!-- ==================== NOTIFICATION RECEIVERS ==================== -->
+        
         <receiver 
             android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver"
             android:exported="false" />

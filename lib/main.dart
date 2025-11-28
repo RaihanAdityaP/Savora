@@ -7,6 +7,7 @@ import 'screens/profile_screen.dart';
 import 'screens/searching_screen.dart';
 import 'utils/supabase_client.dart';
 import 'services/notification_service.dart';
+import 'services/ai_service.dart'; 
 
 // Global navigator key untuk navigation dari notification dan deep link
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -26,6 +27,10 @@ Future<void> main() async {
   // Initialize notification service
   debugPrint('Initializing notification service...');
   await NotificationService().initialize();
+
+    // Inisialisasi AI Service
+  AIService().initialize();
+  debugPrint('AI Service initialized');
   
   // Check banned status
   await _checkBannedStatus();
