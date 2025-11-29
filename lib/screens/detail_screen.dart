@@ -226,18 +226,18 @@ class _DetailScreenState extends State<DetailScreen> with TickerProviderStateMix
     }
   }
 
-// ============ SHARE FEATURE ============
+// ============ SHARE FEATURE - DEEP LINK ONLY ============
 
-  String _generateShareText() {
-    final title = _recipe?['title'] ?? 'Resep Tanpa Judul';
-    final profile = _recipe?['profiles'];
-    final username = profile?['username'] ?? 'Anonymous';
-    final time = _recipe?['cooking_time'] ?? '?';
-    final servings = _recipe?['servings'] ?? '?';
-    final difficulty = (_recipe?['difficulty'] ?? 'mudah').toUpperCase();
-    final rating = _averageRating != null ? '${_averageRating!.toStringAsFixed(1)}/5' : '?/5';
+String _generateShareText() {
+  final title = _recipe?['title'] ?? 'Resep Tanpa Judul';
+  final profile = _recipe?['profiles'];
+  final username = profile?['username'] ?? 'Anonymous';
+  final time = _recipe?['cooking_time'] ?? '?';
+  final servings = _recipe?['servings'] ?? '?';
+  final difficulty = (_recipe?['difficulty'] ?? 'mudah').toUpperCase();
+  final rating = _averageRating != null ? '${_averageRating!.toStringAsFixed(1)}/5' : '?/5';
 
-    return '''
+  return '''
 🍳 RESEP DARI SAVORA 🍳
 📋 Judul: $title
 👨‍🍳 Chef: $username
@@ -248,293 +248,287 @@ class _DetailScreenState extends State<DetailScreen> with TickerProviderStateMix
 📝 Deskripsi:
 ${_recipe?['description'] ?? 'Tidak ada deskripsi.'}
 
-Lihat resep lengkap:
-https://savora-nine.vercel.app/recipe/${widget.recipeId}
+Buka di Savora App:
+savora://recipe/${widget.recipeId}
 '''.trim();
-  }
+}
 
-  // Generate Universal Link yang support deep link + web fallback
-  String _generateUniversalLink() {
-    return 'https://savora-nine.vercel.app/recipe/${widget.recipeId}';
-  }
+// Generate Deep Link (custom scheme)
+String _generateDeepLink() {
+  return 'savora://recipe/${widget.recipeId}';
+}
 
-  Future<void> _shareLink() async {
-    // Share universal link yang akan:
-    // 1. Buka app jika terinstal (via deep link di manifest)
-    // 2. Buka web jika tidak terinstal
-    await Share.share(
-      _generateUniversalLink(),
-      subject: 'Resep dari Savora: ${_recipe?['title']}',
-    );
-  }
+Future<void> _shareLink() async {
+  await Share.share(
+    _generateDeepLink(),
+    subject: 'Resep dari Savora: ${_recipe?['title']}',
+  );
+}
 
-  Future<void> _shareDetail() async {
-    await Share.share(
-      _generateShareText(),
-      subject: 'Resep dari Savora: ${_recipe?['title']}',
-    );
-  }
+Future<void> _shareDetail() async {
+  await Share.share(
+    _generateShareText(),
+    subject: 'Resep dari Savora: ${_recipe?['title']}',
+  );
+}
 
-  Future<void> _shareImage() async {
-    final imageUrl = _recipe?['image_url'];
-    if (imageUrl == null) return;
+Future<void> _shareImage() async {
+  final imageUrl = _recipe?['image_url'];
+  if (imageUrl == null) return;
 
-    try {
-      final uri = Uri.parse(imageUrl);
-      final response = await http.get(uri);
-      if (response.statusCode == 200) {
-        final tempDir = await getTemporaryDirectory();
-        final fileName = '${widget.recipeId}.jpg';
-        final file = File('${tempDir.path}/$fileName');
-        await file.writeAsBytes(response.bodyBytes);
+  try {
+    final uri = Uri.parse(imageUrl);
+    final response = await http.get(uri);
+    if (response.statusCode == 200) {
+      final tempDir = await getTemporaryDirectory();
+      final fileName = '${widget.recipeId}.jpg';
+      final file = File('${tempDir.path}/$fileName');
+      await file.writeAsBytes(response.bodyBytes);
 
-        await Share.shareXFiles(
-          [XFile(file.path)],
-          text: '''${_recipe?['title'] ?? 'Resep Savora'} 🍳
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: '''${_recipe?['title'] ?? 'Resep Savora'} 🍳
 
 Dari Savora - Komunitas Resep Indonesia
 
-Lihat resep lengkap:
-${_generateUniversalLink()}''',
-          subject: 'Resep dari Savora: ${_recipe?['title']}',
-        );
-      } else {
-        _showSnackBar('Gagal mengunduh gambar', isError: true);
-      }
-    } catch (e) {
-      _showSnackBar('Error saat berbagi gambar: $e', isError: true);
-    }
-  }
-
-  Future<void> _shareToWhatsApp() async {
-    final text = _generateShareText();
-    
-    // WhatsApp akan otomatis detect link dan bisa buka app atau web
-    try {
-      await Share.share(
-        text,
+Buka di app:
+${_generateDeepLink()}''',
         subject: 'Resep dari Savora: ${_recipe?['title']}',
       );
-    } catch (e) {
-      _showSnackBar('Error saat berbagi ke WhatsApp: $e', isError: true);
+    } else {
+      _showSnackBar('Gagal mengunduh gambar', isError: true);
     }
+  } catch (e) {
+    _showSnackBar('Error saat berbagi gambar: $e', isError: true);
   }
+}
 
-  // Share dengan custom app chooser
-  Future<void> _shareWithChooser() async {
-    final text = '''${_recipe?['title'] ?? 'Resep Savora'} 🍳
-
-${_recipe?['description'] ?? ''}
-
-Lihat resep lengkap:
-${_generateUniversalLink()}''';
-
+Future<void> _shareToWhatsApp() async {
+  final text = _generateShareText();
+  
+  try {
     await Share.share(
       text,
       subject: 'Resep dari Savora: ${_recipe?['title']}',
     );
+  } catch (e) {
+    _showSnackBar('Error saat berbagi ke WhatsApp: $e', isError: true);
   }
+}
 
-  // Copy link to clipboard
-  Future<void> _copyLinkToClipboard() async {
-    await Clipboard.setData(ClipboardData(text: _generateUniversalLink()));
-    _showSnackBar('Link berhasil disalin! 🔗', isError: false);
-  }
+Future<void> _shareWithChooser() async {
+  final text = '''${_recipe?['title'] ?? 'Resep Savora'} 🍳
 
-  Widget _buildShareOption({
-    required IconData icon,
-    required Color color,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          Navigator.pop(context);
-          onTap();
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withValues(alpha: 0.2), width: 1.5),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: Colors.white, size: 24),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 16,
-                color: Colors.grey.shade400,
-              ),
-            ],
-          ),
+${_recipe?['description'] ?? ''}
+
+Buka di Savora App:
+${_generateDeepLink()}''';
+
+  await Share.share(
+    text,
+    subject: 'Resep dari Savora: ${_recipe?['title']}',
+  );
+}
+
+Future<void> _copyLinkToClipboard() async {
+  await Clipboard.setData(ClipboardData(text: _generateDeepLink()));
+  _showSnackBar('Link berhasil disalin! 🔗', isError: false);
+}
+
+Widget _buildShareOption({
+  required IconData icon,
+  required Color color,
+  required String title,
+  required String subtitle,
+  required VoidCallback onTap,
+}) {
+  return Material(
+    color: Colors.transparent,
+    child: InkWell(
+      onTap: () {
+        Navigator.pop(context);
+        onTap();
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: 0.2), width: 1.5),
         ),
-      ),
-    );
-  }
-
-  Future<void> _showShareBottomSheet() async {
-    _shareButtonAnimationController.forward().then((_) {
-      _shareButtonAnimationController.reverse();
-    });
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: DraggableScrollableSheet(
-            maxChildSize: 0.7,
-            minChildSize: 0.4,
-            initialChildSize: 0.55,
-            expand: false,
-            builder: (_, controller) {
-              return Column(
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Drag Handle
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade400,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
                     ),
                   ),
-                  
-                  // Header
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Bagikan Resep',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: Icon(Icons.close, color: Colors.grey.shade600),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const Divider(height: 1),
-                  const SizedBox(height: 16),
-                  
-                  // Share Options
-                  Expanded(
-                    child: ListView(
-                      controller: controller,
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      children: [
-                        _buildShareOption(
-                          icon: Icons.link_rounded,
-                          color: Colors.blue,
-                          title: 'Share Link',
-                          subtitle: 'Bagikan link (otomatis buka app/web)',
-                          onTap: _shareLink,
-                        ),
-                        _buildShareOption(
-                          icon: Icons.content_copy_rounded,
-                          color: Colors.blueGrey,
-                          title: 'Copy Link',
-                          subtitle: 'Salin link ke clipboard',
-                          onTap: _copyLinkToClipboard,
-                        ),
-                        _buildShareOption(
-                          icon: Icons.description_rounded,
-                          color: AppTheme.primaryCoral,
-                          title: 'Share Detail Lengkap',
-                          subtitle: 'Bagikan dengan deskripsi lengkap',
-                          onTap: _shareDetail,
-                        ),
-                        if (_recipe?['image_url'] != null)
-                          _buildShareOption(
-                            icon: Icons.image_rounded,
-                            color: Colors.green,
-                            title: 'Share dengan Gambar',
-                            subtitle: 'Bagikan gambar + caption',
-                            onTap: _shareImage,
-                          ),
-                        _buildShareOption(
-                          icon: Icons.chat,
-                          color: const Color(0xFF25D366),
-                          title: 'Share ke WhatsApp',
-                          subtitle: 'Kirim langsung ke WhatsApp',
-                          onTap: _shareToWhatsApp,
-                        ),
-                        _buildShareOption(
-                          icon: Icons.share_rounded,
-                          color: Colors.purple,
-                          title: 'Share Lainnya',
-                          subtitle: 'Pilih aplikasi untuk berbagi',
-                          onTap: _shareWithChooser,
-                        ),
-                        const SizedBox(height: 16),
-                      ],
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
                     ),
                   ),
                 ],
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: Colors.grey.shade400,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
-  // ============ END SHARE FEATURE ============
+Future<void> _showShareBottomSheet() async {
+  _shareButtonAnimationController.forward().then((_) {
+    _shareButtonAnimationController.reverse();
+  });
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) {
+      return Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: DraggableScrollableSheet(
+          maxChildSize: 0.7,
+          minChildSize: 0.4,
+          initialChildSize: 0.55,
+          expand: false,
+          builder: (_, controller) {
+            return Column(
+              children: [
+                // Drag Handle
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade400,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ),
+                
+                // Header
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Bagikan Resep',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: Icon(Icons.close, color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const Divider(height: 1),
+                const SizedBox(height: 16),
+                
+                // Share Options
+                Expanded(
+                  child: ListView(
+                    controller: controller,
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    children: [
+                      _buildShareOption(
+                        icon: Icons.link_rounded,
+                        color: Colors.blue,
+                        title: 'Share Link',
+                        subtitle: 'Bagikan Berbagai Resep Menarik!',
+                        onTap: _shareLink,
+                      ),
+                      _buildShareOption(
+                        icon: Icons.content_copy_rounded,
+                        color: Colors.blueGrey,
+                        title: 'Copy Link',
+                        subtitle: 'Salin link ke clipboard',
+                        onTap: _copyLinkToClipboard,
+                      ),
+                      _buildShareOption(
+                        icon: Icons.description_rounded,
+                        color: AppTheme.primaryCoral,
+                        title: 'Share Detail Lengkap',
+                        subtitle: 'Bagikan dengan deskripsi lengkap',
+                        onTap: _shareDetail,
+                      ),
+                      if (_recipe?['image_url'] != null)
+                        _buildShareOption(
+                          icon: Icons.image_rounded,
+                          color: Colors.green,
+                          title: 'Share dengan Gambar',
+                          subtitle: 'Bagikan gambar + caption',
+                          onTap: _shareImage,
+                        ),
+                      _buildShareOption(
+                        icon: Icons.chat,
+                        color: const Color(0xFF25D366),
+                        title: 'Share ke WhatsApp',
+                        subtitle: 'Kirim langsung ke WhatsApp',
+                        onTap: _shareToWhatsApp,
+                      ),
+                      _buildShareOption(
+                        icon: Icons.share_rounded,
+                        color: Colors.purple,
+                        title: 'Share Lainnya',
+                        subtitle: 'Pilih aplikasi untuk berbagi',
+                        onTap: _shareWithChooser,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+    },
+  );
+}
+
+// ============ END SHARE FEATURE ============
 
   Future<void> _showBoardSelector() async {
     try {
