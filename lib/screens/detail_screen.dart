@@ -238,30 +238,34 @@ String _generateShareText() {
   final rating = _averageRating != null ? '${_averageRating!.toStringAsFixed(1)}/5' : '?/5';
 
   return '''
-RESEP DARI SAVORA
-Judul: $title
-Chef: $username
-Waktu: $time menit
-Porsi: $servings porsi
-Tingkat: $difficulty
-Rating: $rating
-Deskripsi:
+🍳 RESEP DARI SAVORA 🍳
+📋 Judul: $title
+👨‍🍳 Chef: $username
+⏱️ Waktu: $time menit
+🍽️ Porsi: $servings porsi
+📊 Tingkat: $difficulty
+⭐ Rating: $rating
+
+📝 Deskripsi:
 ${_recipe?['description'] ?? 'Tidak ada deskripsi.'}
 
-Buka di Savora App:
-savora://recipe/${widget.recipeId}
+Lihat resep lengkap:
+https://savora-nine.vercel.app/recipe/${widget.recipeId}
 '''.trim();
 }
 
-// Generate Deep Link (custom scheme)
-String _generateDeepLink() {
-  return 'savora://recipe/${widget.recipeId}';
+// Generate Universal Link (HTTPS - untuk share)
+String _generateUniversalLink() {
+  return 'https://savora-nine.vercel.app/recipe/${widget.recipeId}';
 }
 
 Future<void> _shareLink() async {
+  // Share universal link yang akan:
+  // 1. Buka app jika terinstal (via deep link di manifest)
+  // 2. Buka web jika tidak terinstal
   await SharePlus.instance.share(
     ShareParams(
-      text: _generateDeepLink(),
+      text: _generateUniversalLink(),
       subject: 'Resep dari Savora: ${_recipe?['title']}',
     ),
   );
@@ -289,16 +293,16 @@ Future<void> _shareImage() async {
       final file = File('${tempDir.path}/$fileName');
       await file.writeAsBytes(response.bodyBytes);
 
-      // gunakan ShareParams untuk share file + text
+      // Gunakan ShareParams untuk share file + text
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(file.path)],
-          text: '''${_recipe?['title'] ?? 'Resep Savora'}
+          text: '''${_recipe?['title'] ?? 'Resep Savora'} 🍳
 
 Dari Savora - Komunitas Resep Indonesia
 
-Buka di app:
-${_generateDeepLink()}''',
+Lihat resep lengkap:
+${_generateUniversalLink()}''',
           subject: 'Resep dari Savora: ${_recipe?['title']}',
         ),
       );
@@ -313,6 +317,7 @@ ${_generateDeepLink()}''',
 Future<void> _shareToWhatsApp() async {
   final text = _generateShareText();
   
+  // WhatsApp akan otomatis detect link dan bisa buka app atau web
   try {
     await SharePlus.instance.share(
       ShareParams(
@@ -324,13 +329,14 @@ Future<void> _shareToWhatsApp() async {
     _showSnackBar('Error saat berbagi ke WhatsApp: $e', isError: true);
   }
 }
+
 Future<void> _shareWithChooser() async {
-  final text = '''${_recipe?['title'] ?? 'Resep Savora'}
+  final text = '''${_recipe?['title'] ?? 'Resep Savora'} 🍳
 
 ${_recipe?['description'] ?? ''}
 
-Buka di Savora App:
-${_generateDeepLink()}''';
+Lihat resep lengkap:
+${_generateUniversalLink()}''';
 
   await SharePlus.instance.share(
     ShareParams(
@@ -340,8 +346,9 @@ ${_generateDeepLink()}''';
   );
 }
 
+// Copy link to clipboard
 Future<void> _copyLinkToClipboard() async {
-  await Clipboard.setData(ClipboardData(text: _generateDeepLink()));
+  await Clipboard.setData(ClipboardData(text: _generateUniversalLink()));
   _showSnackBar('Link berhasil disalin! 🔗', isError: false);
 }
 
@@ -486,7 +493,7 @@ Future<void> _showShareBottomSheet() async {
                         icon: Icons.link_rounded,
                         color: Colors.blue,
                         title: 'Share Link',
-                        subtitle: 'Bagikan Berbagai Resep Menarik!',
+                        subtitle: 'Bagikan link resep',
                         onTap: _shareLink,
                       ),
                       _buildShareOption(
