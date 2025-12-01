@@ -226,7 +226,7 @@ class _DetailScreenState extends State<DetailScreen> with TickerProviderStateMix
     }
   }
 
-// ============ SHARE FEATURE - DEEP LINK ONLY ============
+// ============ SHARE FEATURE ============
 
 String _generateShareText() {
   final title = _recipe?['title'] ?? 'Resep Tanpa Judul';
@@ -238,14 +238,14 @@ String _generateShareText() {
   final rating = _averageRating != null ? '${_averageRating!.toStringAsFixed(1)}/5' : '?/5';
 
   return '''
-🍳 RESEP DARI SAVORA 🍳
-📋 Judul: $title
-👨‍🍳 Chef: $username
-⏱️ Waktu: $time menit
-🍽️ Porsi: $servings porsi
-📊 Tingkat: $difficulty
-⭐ Rating: $rating
-📝 Deskripsi:
+RESEP DARI SAVORA
+Judul: $title
+Chef: $username
+Waktu: $time menit
+Porsi: $servings porsi
+Tingkat: $difficulty
+Rating: $rating
+Deskripsi:
 ${_recipe?['description'] ?? 'Tidak ada deskripsi.'}
 
 Buka di Savora App:
@@ -259,16 +259,20 @@ String _generateDeepLink() {
 }
 
 Future<void> _shareLink() async {
-  await Share.share(
-    _generateDeepLink(),
-    subject: 'Resep dari Savora: ${_recipe?['title']}',
+  await SharePlus.instance.share(
+    ShareParams(
+      text: _generateDeepLink(),
+      subject: 'Resep dari Savora: ${_recipe?['title']}',
+    ),
   );
 }
 
 Future<void> _shareDetail() async {
-  await Share.share(
-    _generateShareText(),
-    subject: 'Resep dari Savora: ${_recipe?['title']}',
+  await SharePlus.instance.share(
+    ShareParams(
+      text: _generateShareText(),
+      subject: 'Resep dari Savora: ${_recipe?['title']}',
+    ),
   );
 }
 
@@ -285,15 +289,18 @@ Future<void> _shareImage() async {
       final file = File('${tempDir.path}/$fileName');
       await file.writeAsBytes(response.bodyBytes);
 
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: '''${_recipe?['title'] ?? 'Resep Savora'} 🍳
+      // gunakan ShareParams untuk share file + text
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          text: '''${_recipe?['title'] ?? 'Resep Savora'}
 
 Dari Savora - Komunitas Resep Indonesia
 
 Buka di app:
 ${_generateDeepLink()}''',
-        subject: 'Resep dari Savora: ${_recipe?['title']}',
+          subject: 'Resep dari Savora: ${_recipe?['title']}',
+        ),
       );
     } else {
       _showSnackBar('Gagal mengunduh gambar', isError: true);
@@ -307,26 +314,29 @@ Future<void> _shareToWhatsApp() async {
   final text = _generateShareText();
   
   try {
-    await Share.share(
-      text,
-      subject: 'Resep dari Savora: ${_recipe?['title']}',
+    await SharePlus.instance.share(
+      ShareParams(
+        text: text,
+        subject: 'Resep dari Savora: ${_recipe?['title']}',
+      ),
     );
   } catch (e) {
     _showSnackBar('Error saat berbagi ke WhatsApp: $e', isError: true);
   }
 }
-
 Future<void> _shareWithChooser() async {
-  final text = '''${_recipe?['title'] ?? 'Resep Savora'} 🍳
+  final text = '''${_recipe?['title'] ?? 'Resep Savora'}
 
 ${_recipe?['description'] ?? ''}
 
 Buka di Savora App:
 ${_generateDeepLink()}''';
 
-  await Share.share(
-    text,
-    subject: 'Resep dari Savora: ${_recipe?['title']}',
+  await SharePlus.instance.share(
+    ShareParams(
+      text: text,
+      subject: 'Resep dari Savora: ${_recipe?['title']}',
+    ),
   );
 }
 
