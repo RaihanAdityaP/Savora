@@ -1,11 +1,11 @@
 {
-  "buildCommand": "if cd flutter; then git pull && cd .. ; else git clone https://https://github.com/RaihanAdityaP/Savora; fi && flutter/bin/flutter doctor && flutter/bin/flutter clean && flutter/bin/flutter config --enable-web && flutter/bin/flutter build web --release",
+  "buildCommand": "if cd flutter; then git pull && cd .. ; else git clone https://github.com/RaihanAdityaP/Savora; fi && flutter/bin/flutter doctor && flutter/bin/flutter clean && flutter/bin/flutter config --enable-web && flutter/bin/flutter build web --release && mkdir -p build/web/recipe && cp public/recipe/[id].html build/web/recipe/share.html",
   "outputDirectory": "build/web",
   "installCommand": "echo 'No install needed'",
   "routes": [
     {
-      "src": "/recipe/([a-f0-9-]+)",
-      "dest": "/public/recipe/[id].html"
+      "src": "/recipe/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})",
+      "dest": "/recipe/share.html"
     },
     {
       "src": "/(.*)",
