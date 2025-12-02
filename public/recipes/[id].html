@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Savora - Resep Indonesia</title>
+    
+    <!-- Open Graph untuk preview di WhatsApp/Social Media -->
+    <meta property="og:title" content="Resep dari Savora">
+    <meta property="og:description" content="Lihat resep menarik ini di Savora!">
+    <meta property="og:image" content="https://placehold.co/1200x630/E76F51/white?text=Savora+Recipe">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Resep dari Savora">
+    <meta name="twitter:description" content="Lihat resep menarik ini di Savora!">
+    <meta name="twitter:image" content="https://placehold.co/1200x630/E76F51/white?text=Savora+Recipe">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #264653 0%, #2A9D8F 25%, #E9C46A 50%, #F4A261 75%, #E76F51 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            animation: slideUp 0.5s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #E76F51, #F4A261);
+            border-radius: 20px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            box-shadow: 0 10px 25px rgba(231, 111, 81, 0.4);
+        }
+        
+        h1 {
+            background: linear-gradient(135deg, #264653, #E76F51);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            font-size: 32px;
+            font-weight: 900;
+        }
+        
+        .subtitle {
+            color: #6B7280;
+            margin-bottom: 30px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .recipe-preview {
+            background: linear-gradient(135deg, rgba(231, 111, 81, 0.05), rgba(244, 162, 97, 0.05));
+            border: 2px solid rgba(231, 111, 81, 0.2);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 30px;
+            display: none;
+        }
+        
+        .recipe-preview.active {
+            display: block;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .recipe-image {
+            width: 100%;
+            height: 200px;
+            border-radius: 12px;
+            object-fit: cover;
+            margin-bottom: 15px;
+            border: 3px solid rgba(231, 111, 81, 0.3);
+        }
+        
+        .recipe-title {
+            font-size: 22px;
+            font-weight: bold;
+            color: #264653;
+            margin-bottom: 8px;
+            line-height: 1.3;
+        }
+        
+        .recipe-description {
+            color: #6B7280;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+        
+        .recipe-meta {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .meta-chip {
+            background: linear-gradient(135deg, #E76F51, #F4A261);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            border-radius: 14px;
+            border: none;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 12px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #E76F51, #F4A261);
+            color: white;
+            box-shadow: 0 10px 25px rgba(231, 111, 81, 0.4);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(231, 111, 81, 0.5);
+        }
+        
+        .btn-secondary {
+            background: #F5F7FA;
+            color: #264653;
+            border: 2px solid #E9ECEF;
+        }
+        
+        .btn-secondary:hover {
+            background: #E9ECEF;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #E76F51;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            color: #E53E3E;
+            background: #FFF5F5;
+            padding: 16px;
+            border-radius: 12px;
+            border: 2px solid #FEB2B2;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            color: #9CA3AF;
+            font-size: 13px;
+        }
+        
+        .redirecting {
+            background: #EBF5FF;
+            border: 2px solid #90CDF4;
+            color: #2C5282;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🍳</div>
+        <h1>Savora</h1>
+        <p class="subtitle">Komunitas Resep Indonesia</p>
+        
+        <div id="redirecting-notice" class="redirecting" style="display: none;">
+            🚀 Membuka di Savora App...
+        </div>
+        
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p style="color: #6B7280; font-weight: 600;">Memuat resep lezat...</p>
+        </div>
+        
+        <div id="recipe-preview" class="recipe-preview">
+            <img id="recipe-image" class="recipe-image" src="" alt="Recipe">
+            <div class="recipe-title" id="recipe-title">-</div>
+            <div class="recipe-description" id="recipe-description">-</div>
+            <div class="recipe-meta" id="recipe-meta"></div>
+        </div>
+        
+        <a href="#" id="open-app-btn" class="btn btn-primary" style="display: none;">
+            📱 Buka di Savora App
+        </a>
+        
+        <a href="https://play.google.com/store/apps/details?id=id.savora.app" 
+           class="btn btn-secondary" 
+           id="download-btn"
+           style="display: none;">
+            📥 Download Savora App
+        </a>
+        
+        <div class="footer">
+            <p>Savora - Temukan & Bagikan Resep Favoritmu</p>
+        </div>
+    </div>
+
+    <script>
+        // Ambil recipe ID dari URL
+        const pathParts = window.location.pathname.split('/');
+        const recipeId = pathParts[pathParts.length - 1];
+        
+        console.log('Recipe ID:', recipeId);
+        console.log('Full path:', window.location.pathname);
+        
+        // Supabase config
+        const SUPABASE_URL = 'https://risxgbbsxuerozzsaxzb.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpc3hnYmJzeHVlcm96enNheHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5ODc2MjAsImV4cCI6MjA3NTU2MzYyMH0.Gr2-m11pdelRgjy4YKuMzj2VDc_92hH3U0vtw2MNwbw';
+        
+        // Deep link & Play Store URL
+        const deepLink = `savora://recipe/${recipeId}`;
+        const playStoreUrl = 'https://play.google.com/store/apps/details?id=id.savora.app';
+        
+        // Validasi UUID format
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        
+        if (!recipeId || !uuidRegex.test(recipeId)) {
+            showError('Format ID resep tidak valid. Pastikan link yang kamu buka benar.');
+        } else {
+            loadRecipeData();
+            tryOpenApp();
+        }
+        
+        async function loadRecipeData() {
+            try {
+                console.log('Fetching recipe:', recipeId);
+                
+                // Query dengan relationship spesifik
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/recipes?id=eq.${recipeId}&select=*,profiles!recipes_user_id_fkey(username),categories(name)`,
+                    {
+                        method: 'GET',
+                        headers: {
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=representation'
+                        }
+                    }
+                );
+                
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Gagal memuat resep (HTTP ${response.status})`);
+                }
+                
+                const data = await response.json();
+                console.log('Recipe data:', data);
+                
+                if (data && data.length > 0) {
+                    displayRecipe(data[0]);
+                } else {
+                    throw new Error('Resep tidak ditemukan atau belum dipublikasikan');
+                }
+            } catch (error) {
+                console.error('Error loading recipe:', error);
+                showError(error.message);
+            }
+        }
+        
+        function displayRecipe(recipe) {
+            // Update meta tags untuk WhatsApp preview
+            document.querySelector('meta[property="og:title"]').content = recipe.title || 'Resep dari Savora';
+            document.querySelector('meta[property="og:description"]').content = recipe.description || 'Lihat resep ini di Savora!';
+            document.querySelector('meta[property="og:url"]').content = window.location.href;
+            
+            if (recipe.image_url) {
+                document.querySelector('meta[property="og:image"]').content = recipe.image_url;
+                document.querySelector('meta[name="twitter:image"]').content = recipe.image_url;
+            }
+            
+            document.title = `${recipe.title || 'Resep'} - Savora`;
+            
+            // Update preview
+            document.getElementById('recipe-title').textContent = recipe.title || 'Resep Tanpa Judul';
+            document.getElementById('recipe-description').textContent = recipe.description || 'Tidak ada deskripsi';
+            
+            if (recipe.image_url) {
+                const imgEl = document.getElementById('recipe-image');
+                imgEl.src = recipe.image_url;
+                imgEl.style.display = 'block';
+            }
+            
+            // Add meta chips
+            const metaContainer = document.getElementById('recipe-meta');
+            metaContainer.innerHTML = '';
+            
+            if (recipe.cooking_time) {
+                metaContainer.innerHTML += `<div class="meta-chip">⏱️ ${recipe.cooking_time} menit</div>`;
+            }
+            
+            if (recipe.servings) {
+                metaContainer.innerHTML += `<div class="meta-chip">🍽️ ${recipe.servings} porsi</div>`;
+            }
+            
+            if (recipe.difficulty) {
+                const difficultyText = recipe.difficulty.charAt(0).toUpperCase() + recipe.difficulty.slice(1);
+                metaContainer.innerHTML += `<div class="meta-chip">📊 ${difficultyText}</div>`;
+            }
+            
+            if (recipe.categories && recipe.categories.name) {
+                metaContainer.innerHTML += `<div class="meta-chip">🏷️ ${recipe.categories.name}</div>`;
+            }
+            
+            // Show preview and buttons
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('recipe-preview').classList.add('active');
+            document.getElementById('open-app-btn').style.display = 'flex';
+            document.getElementById('download-btn').style.display = 'flex';
+        }
+        
+        function showError(message) {
+            const loadingDiv = document.getElementById('loading');
+            loadingDiv.innerHTML = `
+                <div class="error">
+                    <strong>⚠️ Oops!</strong><br>
+                    ${message}
+                </div>
+            `;
+            
+            // Tetap tampilkan tombol download
+            setTimeout(() => {
+                document.getElementById('download-btn').style.display = 'flex';
+            }, 1000);
+        }
+        
+        // Auto redirect ke app (jika terinstall)
+        function tryOpenApp() {
+            const openAppBtn = document.getElementById('open-app-btn');
+            openAppBtn.href = deepLink;
+            
+            // Show redirecting notice
+            const redirectNotice = document.getElementById('redirecting-notice');
+            redirectNotice.style.display = 'block';
+            
+            // Try to open app automatically setelah 1 detik
+            setTimeout(() => {
+                window.location.href = deepLink;
+            }, 1000);
+            
+            // Hide notice setelah 3 detik
+            setTimeout(() => {
+                redirectNotice.style.display = 'none';
+            }, 3000);
+            
+            // Fallback: jika masih di halaman setelah 2.5 detik, berarti app tidak terinstall
+            setTimeout(() => {
+                if (!document.hidden) {
+                    console.log('App tidak terinstall, menampilkan opsi download');
+                    // User bisa klik tombol download manual
+                }
+            }, 2500);
+        }
+    </script>
+</body>
+</html>

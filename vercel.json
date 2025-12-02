@@ -1,0 +1,15 @@
+{
+  "buildCommand": "if cd flutter; then git pull && cd .. ; else git clone https://https://github.com/RaihanAdityaP/Savora; fi && flutter/bin/flutter doctor && flutter/bin/flutter clean && flutter/bin/flutter config --enable-web && flutter/bin/flutter build web --release",
+  "outputDirectory": "build/web",
+  "installCommand": "echo 'No install needed'",
+  "routes": [
+    {
+      "src": "/recipe/([a-f0-9-]+)",
+      "dest": "/public/recipe/[id].html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
+}
