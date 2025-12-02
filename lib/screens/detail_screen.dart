@@ -13,12 +13,11 @@ import 'home_screen.dart';
 import 'edit_recipe_screen.dart';
 import 'profile_screen.dart';
 import 'searching_screen.dart';
-import 'ai_assistant_screen.dart'; 
+import 'ai_assistant_screen.dart';
 
 class DetailScreen extends StatefulWidget {
   final String recipeId;
   const DetailScreen({super.key, required this.recipeId});
-
   @override
   State<DetailScreen> createState() => _DetailScreenState();
 }
@@ -39,7 +38,6 @@ class _DetailScreenState extends State<DetailScreen> with TickerProviderStateMix
   VideoPlayerController? _videoPlayerController;
   ChewieController? _chewieController;
   bool _isVideoInitializing = false;
-
   // Untuk animasi tombol share
   late AnimationController _shareButtonAnimationController;
   late Animation<double> _scaleAnimation;
@@ -169,7 +167,7 @@ class _DetailScreenState extends State<DetailScreen> with TickerProviderStateMix
           .single();
       await supabase
           .from('recipes')
-          .update({'views _count': (current['views_count'] ?? 0) + 1})
+          .update({'views_count': (current['views_count'] ?? 0) + 1})
           .eq('id', widget.recipeId);
     } catch (e) {
       debugPrint('Error incrementing views: $e');
@@ -226,18 +224,16 @@ class _DetailScreenState extends State<DetailScreen> with TickerProviderStateMix
     }
   }
 
-// ============ SHARE FEATURE ============
-
-String _generateShareText() {
-  final title = _recipe?['title'] ?? 'Resep Tanpa Judul';
-  final profile = _recipe?['profiles'];
-  final username = profile?['username'] ?? 'Anonymous';
-  final time = _recipe?['cooking_time'] ?? '?';
-  final servings = _recipe?['servings'] ?? '?';
-  final difficulty = (_recipe?['difficulty'] ?? 'mudah').toUpperCase();
-  final rating = _averageRating != null ? '${_averageRating!.toStringAsFixed(1)}/5' : '?/5';
-
-  return '''
+  // ============ SHARE FEATURE ============
+  String _generateShareText() {
+    final title = _recipe?['title'] ?? 'Resep Tanpa Judul';
+    final profile = _recipe?['profiles'];
+    final username = profile?['username'] ?? 'Anonymous';
+    final time = _recipe?['cooking_time'] ?? '?';
+    final servings = _recipe?['servings'] ?? '?';
+    final difficulty = (_recipe?['difficulty'] ?? 'mudah').toUpperCase();
+    final rating = _averageRating != null ? '${_averageRating!.toStringAsFixed(1)}/5' : '?/5';
+    return '''
 🍳 RESEP DARI SAVORA 🍳
 📋 Judul: $title
 👨‍🍳 Chef: $username
@@ -245,307 +241,283 @@ String _generateShareText() {
 🍽️ Porsi: $servings porsi
 📊 Tingkat: $difficulty
 ⭐ Rating: $rating
-
 📝 Deskripsi:
 ${_recipe?['description'] ?? 'Tidak ada deskripsi.'}
-
 Lihat resep lengkap:
 https://savora-nine.vercel.app/recipe/${widget.recipeId}
 '''.trim();
-}
+  }
 
-// Generate Universal Link (HTTPS - untuk share)
-String _generateUniversalLink() {
-  return 'https://savora-nine.vercel.app/recipe/${widget.recipeId}';
-}
+  String _generateUniversalLink() {
+    return 'https://savora-nine.vercel.app/recipe/${widget.recipeId}';
+  }
 
-Future<void> _shareLink() async {
-  // Share universal link yang akan:
-  // 1. Buka app jika terinstal (via deep link di manifest)
-  // 2. Buka web jika tidak terinstal
-  await SharePlus.instance.share(
-    ShareParams(
-      text: _generateUniversalLink(),
-      subject: 'Resep dari Savora: ${_recipe?['title']}',
-    ),
-  );
-}
+  Future<void> _shareLink() async {
+    await SharePlus.instance.share(
+      ShareParams(
+        text: _generateUniversalLink(),
+        subject: 'Resep dari Savora: ${_recipe?['title']}',
+      ),
+    );
+  }
 
-Future<void> _shareDetail() async {
-  await SharePlus.instance.share(
-    ShareParams(
-      text: _generateShareText(),
-      subject: 'Resep dari Savora: ${_recipe?['title']}',
-    ),
-  );
-}
+  Future<void> _shareDetail() async {
+    await SharePlus.instance.share(
+      ShareParams(
+        text: _generateShareText(),
+        subject: 'Resep dari Savora: ${_recipe?['title']}',
+      ),
+    );
+  }
 
-Future<void> _shareImage() async {
-  final imageUrl = _recipe?['image_url'];
-  if (imageUrl == null) return;
-
-  try {
-    final uri = Uri.parse(imageUrl);
-    final response = await http.get(uri);
-    if (response.statusCode == 200) {
-      final tempDir = await getTemporaryDirectory();
-      final fileName = '${widget.recipeId}.jpg';
-      final file = File('${tempDir.path}/$fileName');
-      await file.writeAsBytes(response.bodyBytes);
-
-      // Gunakan ShareParams untuk share file + text
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(file.path)],
-          text: '''${_recipe?['title'] ?? 'Resep Savora'} 🍳
-
+  Future<void> _shareImage() async {
+    final imageUrl = _recipe?['image_url'];
+    if (imageUrl == null) return;
+    try {
+      final uri = Uri.parse(imageUrl);
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final tempDir = await getTemporaryDirectory();
+        final fileName = '${widget.recipeId}.jpg';
+        final file = File('${tempDir.path}/$fileName');
+        await file.writeAsBytes(response.bodyBytes);
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(file.path)],
+            text: '''${_recipe?['title'] ?? 'Resep Savora'} 🍳
 Dari Savora - Komunitas Resep Indonesia
-
 Lihat resep lengkap:
 ${_generateUniversalLink()}''',
+            subject: 'Resep dari Savora: ${_recipe?['title']}',
+          ),
+        );
+      } else {
+        _showSnackBar('Gagal mengunduh gambar', isError: true);
+      }
+    } catch (e) {
+      _showSnackBar('Error saat berbagi gambar: $e', isError: true);
+    }
+  }
+
+  Future<void> _shareToWhatsApp() async {
+    final text = _generateShareText();
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          text: text,
           subject: 'Resep dari Savora: ${_recipe?['title']}',
         ),
       );
-    } else {
-      _showSnackBar('Gagal mengunduh gambar', isError: true);
+    } catch (e) {
+      _showSnackBar('Error saat berbagi ke WhatsApp: $e', isError: true);
     }
-  } catch (e) {
-    _showSnackBar('Error saat berbagi gambar: $e', isError: true);
   }
-}
 
-Future<void> _shareToWhatsApp() async {
-  final text = _generateShareText();
-  
-  // WhatsApp akan otomatis detect link dan bisa buka app atau web
-  try {
+  Future<void> _shareWithChooser() async {
+    final text = '''${_recipe?['title'] ?? 'Resep Savora'} 🍳
+${_recipe?['description'] ?? ''}
+Lihat resep lengkap:
+${_generateUniversalLink()}''';
     await SharePlus.instance.share(
       ShareParams(
         text: text,
         subject: 'Resep dari Savora: ${_recipe?['title']}',
       ),
     );
-  } catch (e) {
-    _showSnackBar('Error saat berbagi ke WhatsApp: $e', isError: true);
   }
-}
 
-Future<void> _shareWithChooser() async {
-  final text = '''${_recipe?['title'] ?? 'Resep Savora'} 🍳
+  Future<void> _copyLinkToClipboard() async {
+    await Clipboard.setData(ClipboardData(text: _generateUniversalLink()));
+    _showSnackBar('Link berhasil disalin! 🔗', isError: false);
+  }
 
-${_recipe?['description'] ?? ''}
-
-Lihat resep lengkap:
-${_generateUniversalLink()}''';
-
-  await SharePlus.instance.share(
-    ShareParams(
-      text: text,
-      subject: 'Resep dari Savora: ${_recipe?['title']}',
-    ),
-  );
-}
-
-// Copy link to clipboard
-Future<void> _copyLinkToClipboard() async {
-  await Clipboard.setData(ClipboardData(text: _generateUniversalLink()));
-  _showSnackBar('Link berhasil disalin! 🔗', isError: false);
-}
-
-Widget _buildShareOption({
-  required IconData icon,
-  required Color color,
-  required String title,
-  required String subtitle,
-  required VoidCallback onTap,
-}) {
-  return Material(
-    color: Colors.transparent,
-    child: InkWell(
-      onTap: () {
-        Navigator.pop(context);
-        onTap();
-      },
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.2), width: 1.5),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
+  Widget _buildShareOption({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          Navigator.pop(context);
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withValues(alpha: 0.2), width: 1.5),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: Colors.white, size: 24),
               ),
-              child: Icon(icon, color: Colors.white, size: 24),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: Colors.grey.shade400,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showShareBottomSheet() async {
+    _shareButtonAnimationController.forward().then((_) {
+      _shareButtonAnimationController.reverse();
+    });
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: DraggableScrollableSheet(
+            maxChildSize: 0.7,
+            minChildSize: 0.4,
+            initialChildSize: 0.55,
+            expand: false,
+            builder: (_, controller) {
+              return Column(
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade400,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Bagikan Resep',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: Icon(Icons.close, color: Colors.grey.shade600),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView(
+                      controller: controller,
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      children: [
+                        _buildShareOption(
+                          icon: Icons.link_rounded,
+                          color: Colors.blue,
+                          title: 'Share Link',
+                          subtitle: 'Bagikan link resep',
+                          onTap: _shareLink,
+                        ),
+                        _buildShareOption(
+                          icon: Icons.content_copy_rounded,
+                          color: Colors.blueGrey,
+                          title: 'Copy Link',
+                          subtitle: 'Salin link ke clipboard',
+                          onTap: _copyLinkToClipboard,
+                        ),
+                        _buildShareOption(
+                          icon: Icons.description_rounded,
+                          color: AppTheme.primaryCoral,
+                          title: 'Share Detail Lengkap',
+                          subtitle: 'Bagikan dengan deskripsi lengkap',
+                          onTap: _shareDetail,
+                        ),
+                        if (_recipe?['image_url'] != null)
+                          _buildShareOption(
+                            icon: Icons.image_rounded,
+                            color: Colors.green,
+                            title: 'Share dengan Gambar',
+                            subtitle: 'Bagikan gambar + caption',
+                            onTap: _shareImage,
+                          ),
+                        _buildShareOption(
+                          icon: Icons.chat,
+                          color: const Color(0xFF25D366),
+                          title: 'Share ke WhatsApp',
+                          subtitle: 'Kirim langsung ke WhatsApp',
+                          onTap: _shareToWhatsApp,
+                        ),
+                        _buildShareOption(
+                          icon: Icons.share_rounded,
+                          color: Colors.purple,
+                          title: 'Share Lainnya',
+                          subtitle: 'Pilih aplikasi untuk berbagi',
+                          onTap: _shareWithChooser,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                     ),
                   ),
                 ],
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 16,
-              color: Colors.grey.shade400,
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
 
-Future<void> _showShareBottomSheet() async {
-  _shareButtonAnimationController.forward().then((_) {
-    _shareButtonAnimationController.reverse();
-  });
-
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (context) {
-      return Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: DraggableScrollableSheet(
-          maxChildSize: 0.7,
-          minChildSize: 0.4,
-          initialChildSize: 0.55,
-          expand: false,
-          builder: (_, controller) {
-            return Column(
-              children: [
-                // Drag Handle
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade400,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                ),
-                
-                // Header
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Bagikan Resep',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: Icon(Icons.close, color: Colors.grey.shade600),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                const Divider(height: 1),
-                const SizedBox(height: 16),
-                
-                // Share Options
-                Expanded(
-                  child: ListView(
-                    controller: controller,
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    children: [
-                      _buildShareOption(
-                        icon: Icons.link_rounded,
-                        color: Colors.blue,
-                        title: 'Share Link',
-                        subtitle: 'Bagikan link resep',
-                        onTap: _shareLink,
-                      ),
-                      _buildShareOption(
-                        icon: Icons.content_copy_rounded,
-                        color: Colors.blueGrey,
-                        title: 'Copy Link',
-                        subtitle: 'Salin link ke clipboard',
-                        onTap: _copyLinkToClipboard,
-                      ),
-                      _buildShareOption(
-                        icon: Icons.description_rounded,
-                        color: AppTheme.primaryCoral,
-                        title: 'Share Detail Lengkap',
-                        subtitle: 'Bagikan dengan deskripsi lengkap',
-                        onTap: _shareDetail,
-                      ),
-                      if (_recipe?['image_url'] != null)
-                        _buildShareOption(
-                          icon: Icons.image_rounded,
-                          color: Colors.green,
-                          title: 'Share dengan Gambar',
-                          subtitle: 'Bagikan gambar + caption',
-                          onTap: _shareImage,
-                        ),
-                      _buildShareOption(
-                        icon: Icons.chat,
-                        color: const Color(0xFF25D366),
-                        title: 'Share ke WhatsApp',
-                        subtitle: 'Kirim langsung ke WhatsApp',
-                        onTap: _shareToWhatsApp,
-                      ),
-                      _buildShareOption(
-                        icon: Icons.share_rounded,
-                        color: Colors.purple,
-                        title: 'Share Lainnya',
-                        subtitle: 'Pilih aplikasi untuk berbagi',
-                        onTap: _shareWithChooser,
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      );
-    },
-  );
-}
-
-// ============ END SHARE FEATURE ============
+  // ============ END SHARE FEATURE ============
 
   Future<void> _showBoardSelector() async {
     try {
@@ -887,61 +859,244 @@ Future<void> _showShareBottomSheet() async {
     }
   }
 
-  Future<void> _deleteComment(String commentId) async {
+  // ============ METHOD 3: _deleteComment() - LENGKAP (ADMIN DAPAT HAPUS) ============
+  Future<void> _deleteComment(String commentId, String commentUserId) async {
+    final isOwner = _currentUserId == commentUserId;
+    final isAdmin = _currentUserRole == 'admin';
+    
+    if (!isOwner && !isAdmin) {
+      _showSnackBar('Anda tidak memiliki izin untuk menghapus komentar ini', isError: true);
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Hapus Komentar'),
-        content: const Text('Apakah Anda yakin ingin menghapus komentar ini?'),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.warning_rounded, color: Colors.red, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Text('Hapus Komentar'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Apakah Anda yakin ingin menghapus komentar ini?'),
+            if (isAdmin && !isOwner) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.admin_panel_settings, 
+                      size: 18, 
+                      color: Colors.orange.shade700,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Anda menghapus komentar sebagai Admin',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.orange.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Hapus'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('Hapus', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
+
     if (confirm == true) {
       try {
+        // Log aktivitas admin jika yang menghapus adalah admin
+        if (isAdmin && !isOwner) {
+          await supabase.from('activity_logs').insert({
+            'user_id': _currentUserId,
+            'action': 'delete_comment',
+            'entity_type': 'comment',
+            'entity_id': commentId,
+            'details': {
+              'comment_owner_id': commentUserId,
+              'recipe_id': widget.recipeId,
+              'reason': 'Admin moderation',
+            },
+          });
+        }
+
         await supabase.from('comments').delete().eq('id', commentId);
         await _loadComments();
-        _showSnackBar('Komentar berhasil dihapus!', isError: false);
+        
+        _showSnackBar(
+          isAdmin && !isOwner 
+            ? 'Komentar berhasil dihapus oleh Admin!' 
+            : 'Komentar berhasil dihapus!',
+          isError: false,
+        );
       } catch (e) {
         _showSnackBar('Error: $e', isError: true);
       }
     }
   }
 
+  // ============ METHOD 1: _deleteRecipe() - LENGKAP ============
   Future<void> _deleteRecipe() async {
+    // Cek apakah user adalah owner atau admin
+    final isOwner = _currentUserId == _recipe?['user_id'].toString();
+    final isAdmin = _currentUserRole == 'admin';
+    
+    if (!isOwner && !isAdmin) {
+      _showSnackBar('Anda tidak memiliki izin untuk menghapus resep ini', isError: true);
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Hapus Resep'),
-        content: const Text('Apakah Anda yakin ingin menghapus resep ini? Tindakan ini tidak dapat dibatalkan.'),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.warning_rounded, color: Colors.red, size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Text('Hapus Resep'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Apakah Anda yakin ingin menghapus resep ini?'),
+            const SizedBox(height: 8),
+            Text(
+              'Tindakan ini tidak dapat dibatalkan.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.red.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            if (isAdmin && !isOwner) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.admin_panel_settings, 
+                      size: 20, 
+                      color: Colors.orange.shade700,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Anda menghapus resep sebagai Admin',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Hapus'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+              backgroundColor: Colors.red.withValues(alpha: 0.1),
+            ),
+            child: const Text('Hapus', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
+
     if (confirm == true) {
       try {
+        // Log aktivitas admin jika yang menghapus adalah admin
+        if (isAdmin && !isOwner) {
+          await supabase.from('activity_logs').insert({
+            'user_id': _currentUserId,
+            'action': 'delete_recipe',
+            'entity_type': 'recipe',
+            'entity_id': widget.recipeId,
+            'details': {
+              'recipe_title': _recipe?['title'],
+              'recipe_owner_id': _recipe?['user_id'],
+              'reason': 'Admin deletion',
+            },
+          });
+        }
+
+        // Hapus semua data terkait resep
         await supabase.from('comments').delete().eq('recipe_id', widget.recipeId);
         await supabase.from('recipe_ratings').delete().eq('recipe_id', widget.recipeId);
-        await supabase.from('favorites').delete().eq('recipe_id', widget.recipeId);
-        await supabase.from('recipe_tags').delete().eq('recipe_id', widget.recipeId);
         await supabase.from('board_recipes').delete().eq('recipe_id', widget.recipeId);
+        await supabase.from('recipe_tags').delete().eq('recipe_id', widget.recipeId);
         await supabase.from('recipes').delete().eq('id', widget.recipeId);
+
         if (!mounted) return;
-        _showSnackBar('Resep berhasil dihapus!', isError: false);
+        
+        _showSnackBar(
+          isAdmin && !isOwner 
+            ? 'Resep berhasil dihapus oleh Admin!' 
+            : 'Resep berhasil dihapus!',
+          isError: false,
+        );
+        
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -1024,59 +1179,57 @@ Future<void> _showShareBottomSheet() async {
     );
   }
 
-@override
-Widget build(BuildContext context) {
-  final isOwner = _currentUserId == _recipe?['user_id'].toString();
-  final isCurrentUserAdmin = _currentUserRole == 'admin';
-  final canEdit = isOwner || isCurrentUserAdmin;
-  return Scaffold(
-    backgroundColor: AppTheme.backgroundLight,
-    body: _isLoading
-        ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryCoral))
-        : _recipe == null
-            ? const Center(child: Text('Resep tidak ditemukan'))
-            : CustomScrollView(
-                slivers: [
-                  _buildAppBar(),
-                  SliverPadding(
-                    padding: const EdgeInsets.all(16),
-                    sliver: SliverList(
-                      delegate: SliverChildListDelegate([
-                        _buildHeroCard(canEdit),
-                        const SizedBox(height: 16),
-                        _buildContentCard(),
-                        const SizedBox(height: 16),
-                        _buildInteractionCard(),
-                        const SizedBox(height: 100),
-                      ]),
+  @override
+  Widget build(BuildContext context) {
+    final isOwner = _currentUserId == _recipe?['user_id'].toString();
+    final isCurrentUserAdmin = _currentUserRole == 'admin';
+    final canEdit = isOwner || isCurrentUserAdmin;
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundLight,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryCoral))
+          : _recipe == null
+              ? const Center(child: Text('Resep tidak ditemukan'))
+              : CustomScrollView(
+                  slivers: [
+                    _buildAppBar(),
+                    SliverPadding(
+                      padding: const EdgeInsets.all(16),
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate([
+                          _buildHeroCard(canEdit),
+                          const SizedBox(height: 16),
+                          _buildContentCard(),
+                          const SizedBox(height: 16),
+                          _buildInteractionCard(),
+                          const SizedBox(height: 100),
+                        ]),
+                      ),
+                    ),
+                  ],
+                ),
+      bottomNavigationBar: CustomBottomNav(currentIndex: 0, avatarUrl: _userAvatarUrl, onRefresh: _loadRecipe),
+      floatingActionButton: _recipe != null
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AIAssistantScreen(
+                      recipeContext: (_recipe!['title'] ?? '') +
+                         '\n${_recipe!['ingredients'] is List ? (_recipe!['ingredients'] as List).map((i) => i is Map ? i['name'] ?? i.toString() : i.toString()).join(', ') : ''}',
                     ),
                   ),
-                ],
-              ),
-    bottomNavigationBar: CustomBottomNav(currentIndex: 0, avatarUrl: _userAvatarUrl, onRefresh: _loadRecipe),
-
-    // 💡 TAMBAHKAN INI: AI Assistant FAB
-    floatingActionButton: _recipe != null
-        ? FloatingActionButton.extended(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AIAssistantScreen(
-                    recipeContext: (_recipe!['title'] ?? '') +
-                       '\n${_recipe!['ingredients'] is List ? (_recipe!['ingredients'] as List).map((i) => i is Map ? i['name'] ?? i.toString() : i.toString()).join(', ') : ''}',
-                  ),
-                ),
-              );
-            },
-            icon: const Icon(Icons.psychology_rounded),
-            label: const Text('Chef AI'),
-            backgroundColor: AppTheme.primaryCoral,
-          )
-        : null,
-    floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-  );
-}
+                );
+              },
+              icon: const Icon(Icons.psychology_rounded),
+              label: const Text('Chef AI'),
+              backgroundColor: AppTheme.primaryCoral,
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    );
+  }
 
   Widget _buildAppBar() {
     return SliverAppBar(
@@ -1397,78 +1550,257 @@ Widget build(BuildContext context) {
   }
 
   Widget _buildActionButtons(bool canEdit) {
-    return Row(
+    final isAdmin = _currentUserRole == 'admin';
+
+    return Column(
       children: [
+        // Row pertama: Edit & Delete (jika owner/admin)
         if (canEdit) ...[
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EditRecipeScreen(recipe: _recipe!))).then((_) => _loadRecipe()),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.primaryDark,
-                side: BorderSide(color: AppTheme.primaryDark.withValues(alpha: 0.3), width: 2),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              icon: const Icon(Icons.edit_rounded, size: 18),
-              label: const Text('Edit', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: _deleteRecipe,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade500,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              icon: const Icon(Icons.delete_rounded, size: 18),
-              label: const Text('Hapus', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ),
-        ] else ...[
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: _isFavorite ? AppTheme.orangeGradient : AppTheme.accentGradient,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ElevatedButton.icon(
-                onPressed: _showBoardSelector,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  foregroundColor: Colors.white,
-                  shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppTheme.primaryTeal.withValues(alpha: 0.1),
+                        AppTheme.primaryDark.withValues(alpha: 0.05),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: AppTheme.primaryDark.withValues(alpha: 0.3), 
+                      width: 1.5
+                    ),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => Navigator.push(
+                        context, 
+                        MaterialPageRoute(
+                          builder: (_) => EditRecipeScreen(recipe: _recipe!)
+                        )
+                      ).then((_) => _loadRecipe()),
+                      borderRadius: BorderRadius.circular(14),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.edit_rounded, size: 20, color: AppTheme.primaryDark),
+                          SizedBox(width: 8),
+                          Text(
+                            'Edit Resep', 
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: AppTheme.primaryDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-                icon: Icon(_isFavorite ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, size: 20),
-                label: Text(_isFavorite ? 'Tersimpan' : 'Simpan', style: const TextStyle(fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.red.shade500, Colors.red.shade600],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.red.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _deleteRecipe,
+                      borderRadius: BorderRadius.circular(14),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.delete_rounded, size: 20, color: Colors.white),
+                          SizedBox(width: 8),
+                          Text(
+                            'Hapus', 
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ] else if (isAdmin) ...[
+          // Admin bukan owner
+          Container(
+            height: 48,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.orange.shade500, Colors.orange.shade700],
+              ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.orange.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _deleteRecipe,
+                borderRadius: BorderRadius.circular(14),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.admin_panel_settings, size: 20, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text(
+                      'Hapus Resep (Admin)', 
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
+          const SizedBox(height: 12),
         ],
-        const SizedBox(width: 8),
-        // Share Button with Animation
-        ScaleTransition(
-          scale: _scaleAnimation,
-          child: GestureDetector(
-            onTapDown: (_) => _shareButtonAnimationController.forward(),
-            onTapUp: (_) => _shareButtonAnimationController.reverse(),
-            onTapCancel: () => _shareButtonAnimationController.reverse(),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: AppTheme.accentGradient,
-                shape: BoxShape.circle,
-                boxShadow: AppTheme.buttonShadow,
+        
+        // Row kedua: Save & Share (selalu tampil)
+        Row(
+          children: [
+            if (!canEdit && !isAdmin)
+              Expanded(
+                child: Container(
+                  height: 50,
+                  decoration: BoxDecoration(
+                    gradient: _isFavorite 
+                      ? AppTheme.orangeGradient 
+                      : AppTheme.accentGradient,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (_isFavorite 
+                          ? AppTheme.primaryOrange 
+                          : AppTheme.primaryCoral).withValues(alpha: 0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _showBoardSelector,
+                      borderRadius: BorderRadius.circular(14),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _isFavorite 
+                              ? Icons.bookmark_rounded 
+                              : Icons.bookmark_border_rounded, 
+                            size: 22,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            _isFavorite ? 'Tersimpan' : 'Simpan Resep', 
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
-              child: IconButton(
-                onPressed: _showShareBottomSheet,
-                icon: const Icon(Icons.share_rounded, color: Colors.white, size: 28),
+            if (!canEdit && !isAdmin) const SizedBox(width: 12),
+            
+            // Share Button dengan animation
+            Expanded(
+              child: ScaleTransition(
+                scale: _scaleAnimation,
+                child: GestureDetector(
+                  onTapDown: (_) => _shareButtonAnimationController.forward(),
+                  onTapUp: (_) => _shareButtonAnimationController.reverse(),
+                  onTapCancel: () => _shareButtonAnimationController.reverse(),
+                  child: Container(
+                    height: 50,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFF6366F1),
+                          Color(0xFF8B5CF6),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.4),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _showShareBottomSheet,
+                        borderRadius: BorderRadius.circular(14),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.share_rounded, 
+                              color: Colors.white, 
+                              size: 22,
+                            ),
+                            SizedBox(width: 10),
+                            Text(
+                              'Bagikan', 
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
+          ],
         ),
       ],
     );
@@ -1793,6 +2125,7 @@ Widget build(BuildContext context) {
               subtitle: 'Jadilah yang pertama memberikan ulasan!',
             )
           else
+            // ============ METHOD 4: BAGIAN DARI _buildInteractionCard() - UPDATE COMMENT ITEM ============
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -1802,8 +2135,11 @@ Widget build(BuildContext context) {
                 final profile = comment['profiles'];
                 final username = profile?['username'] ?? 'Anonymous';
                 final avatarUrl = profile?['avatar_url'];
-                final isOwner = _currentUserId == comment['user_id'].toString();
                 final commentUserId = comment['user_id'].toString();
+                final isCommentOwner = _currentUserId == commentUserId;
+                final isAdmin = _currentUserRole == 'admin';
+                final canManageComment = isCommentOwner || isAdmin;
+                
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(14),
@@ -1814,7 +2150,12 @@ Widget build(BuildContext context) {
                       Row(
                         children: [
                           GestureDetector(
-                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(userId: commentUserId))),
+                            onTap: () => Navigator.push(
+                              context, 
+                              MaterialPageRoute(
+                                builder: (_) => ProfileScreen(userId: commentUserId)
+                              )
+                            ),
                             child: Row(
                               children: [
                                 Container(
@@ -1822,45 +2163,123 @@ Widget build(BuildContext context) {
                                   height: 36,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    gradient: LinearGradient(colors: [Colors.grey.shade300, Colors.grey.shade400]),
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.grey.shade300, 
+                                        Colors.grey.shade400
+                                      ]
+                                    ),
                                   ),
                                   child: ClipOval(
                                     child: avatarUrl != null
-                                        ? Image.network(avatarUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => const Icon(Icons.person, size: 18, color: Colors.white))
-                                        : const Icon(Icons.person, size: 18, color: Colors.white),
+                                        ? Image.network(
+                                            avatarUrl, 
+                                            fit: BoxFit.cover, 
+                                            errorBuilder: (_, _, _) => const Icon(
+                                              Icons.person, 
+                                              size: 18, 
+                                              color: Colors.white
+                                            )
+                                          )
+                                        : const Icon(
+                                            Icons.person, 
+                                            size: 18, 
+                                            color: Colors.white
+                                          ),
                                   ),
                                 ),
                                 const SizedBox(width: 10),
-                                Text(username, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                                Text(
+                                  username, 
+                                  style: const TextStyle(
+                                    fontSize: 13, 
+                                    fontWeight: FontWeight.bold, 
+                                    color: AppTheme.textPrimary
+                                  )
+                                ),
                               ],
                             ),
                           ),
                           const Spacer(),
-                          if (isOwner)
+                          if (canManageComment)
                             PopupMenuButton<String>(
                               onSelected: (value) {
-                                if (value == 'edit') {
-                                  _showEditCommentDialog(comment['id'], comment['content']);
+                                if (value == 'edit' && isCommentOwner) {
+                                  _showEditCommentDialog(
+                                    comment['id'], 
+                                    comment['content']
+                                  );
                                 } else if (value == 'delete') {
-                                  _deleteComment(comment['id']);
+                                  _deleteComment(comment['id'], commentUserId);
                                 }
                               },
                               itemBuilder: (_) => [
-                                const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit_rounded, size: 16), SizedBox(width: 8), Text('Edit')])),
-                                const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_rounded, size: 16, color: Colors.red), SizedBox(width: 8), Text('Hapus', style: TextStyle(color: Colors.red))])),
+                                if (isCommentOwner)
+                                  const PopupMenuItem(
+                                    value: 'edit', 
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.edit_rounded, size: 16),
+                                        SizedBox(width: 8),
+                                        Text('Edit'),
+                                      ]
+                                    )
+                                  ),
+                                PopupMenuItem(
+                                  value: 'delete', 
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        isAdmin && !isCommentOwner 
+                                          ? Icons.admin_panel_settings 
+                                          : Icons.delete_rounded,
+                                        size: 16, 
+                                        color: Colors.red
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        isAdmin && !isCommentOwner 
+                                          ? 'Hapus (Admin)' 
+                                          : 'Hapus',
+                                        style: const TextStyle(color: Colors.red)
+                                      ),
+                                    ]
+                                  )
+                                ),
                               ],
-                              icon: Icon(Icons.more_vert_rounded, color: Colors.grey.shade400, size: 18),
+                              icon: Icon(
+                                Icons.more_vert_rounded, 
+                                color: Colors.grey.shade400, 
+                                size: 18
+                              ),
                             ),
                         ],
                       ),
                       const SizedBox(height: 10),
-                      Text(comment['content'] ?? '', style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary, height: 1.4)),
+                      Text(
+                        comment['content'] ?? '', 
+                        style: const TextStyle(
+                          fontSize: 13, 
+                          color: AppTheme.textPrimary, 
+                          height: 1.4
+                        )
+                      ),
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          Icon(Icons.access_time_rounded, size: 12, color: Colors.grey.shade400),
+                          Icon(
+                            Icons.access_time_rounded, 
+                            size: 12, 
+                            color: Colors.grey.shade400
+                          ),
                           const SizedBox(width: 4),
-                          Text(_formatDateTime(comment['created_at']), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                          Text(
+                            _formatDateTime(comment['created_at']), 
+                            style: TextStyle(
+                              fontSize: 11, 
+                              color: Colors.grey.shade500
+                            )
+                          ),
                         ],
                       ),
                     ],
