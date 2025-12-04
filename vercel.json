@@ -1,5 +1,5 @@
 {
-  "buildCommand": "if cd flutter; then git pull && cd .. ; else git clone https://github.com/RaihanAdityaP/Savora; fi && flutter/bin/flutter doctor && flutter/bin/flutter clean && flutter/bin/flutter config --enable-web && flutter/bin/flutter build web --release && mkdir -p build/web/recipe && cp public/recipe/[id].html build/web/recipe/share.html",
+  "buildCommand": "bash build.sh",
   "outputDirectory": "build/web",
   "installCommand": "echo 'No install needed'",
   "routes": [
