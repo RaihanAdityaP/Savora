@@ -1,23 +1,25 @@
 #!/bin/bash
 set -e
 
-# Update/clone Flutter SDK
-if cd flutter; then 
-    git pull && cd ..
-else 
-    git clone https://github.com/flutter/flutter.git
+# Clone atau update Flutter SDK
+if [ -d flutter ]; then
+  echo "Updating Flutter SDK..."
+  (cd flutter && git pull)
+else
+  echo "Cloning Flutter SDK..."
+  git clone https://github.com/flutter/flutter.git -b stable
 fi
 
-# Setup Flutter
-flutter/bin/flutter doctor
-flutter/bin/flutter clean
-flutter/bin/flutter config --enable-web
+# Tambahkan ke PATH supaya perintah 'flutter' bisa dipakai
+export PATH="$PATH:$PWD/flutter/bin"
 
-# Build Flutter Web
-flutter/bin/flutter build web --release
+# Sekarang semua perintah flutter aman
+flutter --version
+flutter config --enable-web
+flutter build web --release
 
-# Copy share page ke output
+# Salin file share
 mkdir -p build/web/recipe
-cp public/recipe/[id].html build/web/recipe/share.html
+cp "public/recipe/[id].html" build/web/recipe/share.html
 
-echo "✅ Build completed successfully!"
+echo "Build completed!"
