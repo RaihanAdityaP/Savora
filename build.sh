@@ -5,7 +5,7 @@ set -e
 if cd flutter; then 
     git pull && cd ..
 else 
-    git clone https://github.com/RaihanAdityaP/Savora.git
+    git clone https://github.com/flutter/flutter.git
 fi
 
 # Setup Flutter
